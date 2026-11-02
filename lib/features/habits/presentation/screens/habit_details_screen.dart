@@ -6,8 +6,13 @@ import 'add_habit_screen.dart';
 
 class HabitDetailsScreen extends StatelessWidget {
   final Habit habit;
+  final Future<bool> Function(String id)? onHabitDeleted;
 
-  const HabitDetailsScreen({super.key, required this.habit});
+  const HabitDetailsScreen({
+    super.key,
+    required this.habit,
+    this.onHabitDeleted,
+  });
 
   String _getScheduleDescription() {
     switch (habit.scheduleType) {
@@ -64,6 +69,44 @@ class HabitDetailsScreen extends StatelessWidget {
 
               if (updatedHabit != null && context.mounted) {
                 Navigator.pop(context, updatedHabit);
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete habit',
+            onPressed: () async {
+              final shouldDelete = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Delete habit?'),
+                  content: Text(
+                    'Are you sure you want to delete "${habit.name}"? '
+                    'Its progress history will also be deleted. '
+                    'This action cannot be undone.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(color: AppColors.danger),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldDelete != true || !context.mounted) return;
+
+              final deleted = await onHabitDeleted?.call(habit.id) ?? false;
+
+              if (deleted && context.mounted) {
+                Navigator.pop(context);
               }
             },
           ),

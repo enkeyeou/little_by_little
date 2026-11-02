@@ -8,8 +8,14 @@ import '../../../habits/presentation/screens/habit_details_screen.dart';
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
   final Future<void> Function(Habit habit)? onHabitUpdated;
+  final Future<bool> Function(String id)? onHabitDeleted;
 
-  const HomeScreen({super.key, required this.habits, this.onHabitUpdated});
+  const HomeScreen({
+    super.key,
+    required this.habits,
+    this.onHabitUpdated,
+    this.onHabitDeleted,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -328,7 +334,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     final updatedHabit = await Navigator.push<Habit>(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => HabitDetailsScreen(habit: habit),
+                        builder: (context) => HabitDetailsScreen(
+                          habit: habit,
+                          onHabitDeleted: widget.onHabitDeleted,
+                        ),
                       ),
                     );
 

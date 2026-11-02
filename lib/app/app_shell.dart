@@ -18,7 +18,11 @@ class _AppShellState extends State<AppShell> {
   final HabitLocalDataSource _habitDataSource = HabitLocalDataSource();
 
   List<Widget> get _pages => [
-    HomeScreen(habits: _habits, onHabitUpdated: _updateHabit),
+    HomeScreen(
+      habits: _habits,
+      onHabitUpdated: _updateHabit,
+      onHabitDeleted: _deleteHabit,
+    ),
     const Center(child: Text('Insights')),
     const Center(child: Text('History')),
     const Center(child: Text('Settings')),
@@ -61,6 +65,30 @@ class _AppShellState extends State<AppShell> {
           content: Text('Failed to update habit. Please try again.'),
         ),
       );
+    }
+  }
+
+  Future<bool> _deleteHabit(String id) async {
+    try {
+      await _habitDataSource.deleteHabit(id);
+
+      if (!mounted) return false;
+
+      setState(() {
+        _habits.removeWhere((habit) => habit.id == id);
+      });
+
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete habit. Please try again.'),
+        ),
+      );
+
+      return false;
     }
   }
 

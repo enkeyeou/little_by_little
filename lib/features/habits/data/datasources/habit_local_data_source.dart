@@ -6,9 +6,8 @@ import '../../domain/models/habit.dart';
 class HabitLocalDataSource {
   final AppDatabase _appDatabase;
 
-  HabitLocalDataSource({
-    AppDatabase? appDatabase,
-  }) : _appDatabase = appDatabase ?? AppDatabase.instance;
+  HabitLocalDataSource({AppDatabase? appDatabase})
+    : _appDatabase = appDatabase ?? AppDatabase.instance;
 
   Future<void> insertHabit(Habit habit) async {
     final db = await _appDatabase.database;
@@ -23,10 +22,7 @@ class HabitLocalDataSource {
   Future<List<Habit>> getAllHabits() async {
     final db = await _appDatabase.database;
 
-    final results = await db.query(
-      'habits',
-      orderBy: 'created_at DESC',
-    );
+    final results = await db.query('habits', orderBy: 'created_at DESC');
 
     return results.map((map) => Habit.fromMap(map)).toList();
   }
@@ -45,10 +41,10 @@ class HabitLocalDataSource {
   Future<void> deleteHabit(String id) async {
     final db = await _appDatabase.database;
 
-    await db.delete(
-      'habits',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.transaction((txn) async {
+      await txn.delete('habit_logs', where: 'habit_id = ?', whereArgs: [id]);
+
+      await txn.delete('habits', where: 'id = ?', whereArgs: [id]);
+    });
   }
 }
