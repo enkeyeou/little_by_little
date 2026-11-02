@@ -3,6 +3,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../habits/domain/models/habit.dart';
 import '../../../habits/data/datasources/habit_progress_local_data_source.dart';
 import '../../../habits/domain/models/habit_progress.dart';
+import '../../../habits/presentation/screens/habit_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
@@ -321,98 +322,108 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               ...widget.habits.map((habit) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: habit.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          habit.emoji,
-                          style: const TextStyle(fontSize: 24),
-                        ),
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HabitDetailsScreen(habit: habit),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              habit.name,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (habit.description.isNotEmpty) ...[
-                              const SizedBox(height: 4),
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: habit.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            habit.emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                habit.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                habit.name,
                                 style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
                                 ),
                               ),
+                              if (habit.description.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  habit.description,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ),
-                      if (habit.trackingType == TrackingType.counter) ...[
-                        IconButton(
-                          onPressed: _getTodayCount(habit.id) > 0
-                              ? () => _updateCounter(habit, -1)
-                              : null,
-                          icon: const Icon(Icons.remove_circle_outline),
-                          color: AppColors.textSecondary,
-                        ),
-                        Text(
-                          '${_getTodayCount(habit.id)}',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => _updateCounter(habit, 1),
-                          icon: const Icon(Icons.add_circle_outline),
-                          color: AppColors.primary,
-                        ),
-                        if (_isCounterGoalReached(habit))
-                          const Icon(
-                            Icons.check_circle,
+                        if (habit.trackingType == TrackingType.counter) ...[
+                          IconButton(
+                            onPressed: _getTodayCount(habit.id) > 0
+                                ? () => _updateCounter(habit, -1)
+                                : null,
+                            icon: const Icon(Icons.remove_circle_outline),
+                            color: AppColors.textSecondary,
+                          ),
+                          Text(
+                            '${_getTodayCount(habit.id)}',
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _updateCounter(habit, 1),
+                            icon: const Icon(Icons.add_circle_outline),
                             color: AppColors.primary,
                           ),
-                      ] else
-                        IconButton(
-                          onPressed: () => _toggleCompletion(habit),
-                          icon: Icon(
-                            _isCompleted(habit.id)
-                                ? Icons.check_circle
-                                : Icons.circle_outlined,
-                            color: _isCompleted(habit.id)
-                                ? AppColors.primary
-                                : AppColors.textMuted,
+                          if (_isCounterGoalReached(habit))
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.primary,
+                            ),
+                        ] else
+                          IconButton(
+                            onPressed: () => _toggleCompletion(habit),
+                            icon: Icon(
+                              _isCompleted(habit.id)
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                              color: _isCompleted(habit.id)
+                                  ? AppColors.primary
+                                  : AppColors.textMuted,
+                            ),
+                            tooltip: _isCompleted(habit.id)
+                                ? 'Mark as incomplete'
+                                : 'Mark as complete',
                           ),
-                          tooltip: _isCompleted(habit.id)
-                              ? 'Mark as incomplete'
-                              : 'Mark as complete',
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }),
