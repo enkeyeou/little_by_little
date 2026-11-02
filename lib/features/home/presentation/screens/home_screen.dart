@@ -45,6 +45,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return _todayProgress[habitId]?.isCompleted ?? false;
   }
 
+  int get _totalHabits => widget.habits
+      .where((habit) => habit.trackingType == TrackingType.completion)
+      .length;
+
+  int get _completedHabits => widget.habits
+      .where(
+        (habit) =>
+            habit.trackingType == TrackingType.completion &&
+            _isCompleted(habit.id),
+      )
+      .length;
+
+  double get _dailyProgress =>
+      _totalHabits == 0 ? 0 : _completedHabits / _totalHabits;
+
   Future<void> _toggleCompletion(Habit habit) async {
     final isNowCompleted = !_isCompleted(habit.id);
 
@@ -123,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        '0%',
+                        '${(_dailyProgress * 100).round()}%',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,
@@ -134,8 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 16),
 
-                  const Text(
-                    '0 / 0',
+                  Text(
+                    '$_completedHabits / $_totalHabits',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 28,
@@ -147,8 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: const LinearProgressIndicator(
-                      value: 0,
+                    child: LinearProgressIndicator(
+                      value: _dailyProgress,
                       minHeight: 7,
                       backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation<Color>(
