@@ -7,8 +7,9 @@ import '../../../habits/presentation/screens/habit_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
+  final Future<void> Function(Habit habit)? onHabitUpdated;
 
-  const HomeScreen({super.key, required this.habits});
+  const HomeScreen({super.key, required this.habits, this.onHabitUpdated});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -323,13 +324,17 @@ class _HomeScreenState extends State<HomeScreen> {
             else
               ...widget.habits.map((habit) {
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    final updatedHabit = await Navigator.push<Habit>(
                       context,
                       MaterialPageRoute(
                         builder: (context) => HabitDetailsScreen(habit: habit),
                       ),
                     );
+
+                    if (updatedHabit != null) {
+                      await widget.onHabitUpdated?.call(updatedHabit);
+                    }
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),

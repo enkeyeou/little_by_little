@@ -18,7 +18,7 @@ class _AppShellState extends State<AppShell> {
   final HabitLocalDataSource _habitDataSource = HabitLocalDataSource();
 
   List<Widget> get _pages => [
-    HomeScreen(habits: _habits),
+    HomeScreen(habits: _habits, onHabitUpdated: _updateHabit),
     const Center(child: Text('Insights')),
     const Center(child: Text('History')),
     const Center(child: Text('Settings')),
@@ -38,6 +38,30 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       _habits.addAll(savedHabits);
     });
+  }
+
+  Future<void> _updateHabit(Habit habit) async {
+    try {
+      await _habitDataSource.updateHabit(habit);
+
+      if (!mounted) return;
+
+      setState(() {
+        final index = _habits.indexWhere((item) => item.id == habit.id);
+
+        if (index != -1) {
+          _habits[index] = habit;
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update habit. Please try again.'),
+        ),
+      );
+    }
   }
 
   @override

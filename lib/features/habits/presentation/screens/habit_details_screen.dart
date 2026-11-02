@@ -1,16 +1,13 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/models/habit.dart';
+import 'add_habit_screen.dart';
 
 class HabitDetailsScreen extends StatelessWidget {
   final Habit habit;
 
-  const HabitDetailsScreen({
-    super.key,
-    required this.habit,
-  });
+  const HabitDetailsScreen({super.key, required this.habit});
 
   String _getScheduleDescription() {
     switch (habit.scheduleType) {
@@ -28,9 +25,7 @@ class HabitDetailsScreen extends StatelessWidget {
           'Sunday',
         ];
 
-        return habit.selectedWeekdays
-            .map((day) => days[day - 1])
-            .join(', ');
+        return habit.selectedWeekdays.map((day) => days[day - 1]).join(', ');
 
       case HabitScheduleType.everyNDays:
         return 'Every ${habit.everyNDays} days';
@@ -55,6 +50,24 @@ class HabitDetailsScreen extends StatelessWidget {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit habit',
+            onPressed: () async {
+              final updatedHabit = await Navigator.push<Habit>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddHabitScreen(habit: habit),
+                ),
+              );
+
+              if (updatedHabit != null && context.mounted) {
+                Navigator.pop(context, updatedHabit);
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -70,10 +83,7 @@ class HabitDetailsScreen extends StatelessWidget {
                   color: habit.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Text(
-                  habit.emoji,
-                  style: const TextStyle(fontSize: 42),
-                ),
+                child: Text(habit.emoji, style: const TextStyle(fontSize: 42)),
               ),
             ),
 
@@ -141,7 +151,7 @@ class HabitDetailsScreen extends StatelessWidget {
                 value: habit.counterGoal == null
                     ? 'No goal set'
                     : '${habit.counterGoal} ${habit.counterUnit} '
-                        '${habit.counterGoalPeriod.name}',
+                          '${habit.counterGoalPeriod.name}',
               ),
             ],
 
@@ -174,11 +184,7 @@ class HabitDetailsScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: AppColors.primary,
-            size: 22,
-          ),
+          Icon(icon, color: AppColors.primary, size: 22),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

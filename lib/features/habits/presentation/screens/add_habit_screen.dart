@@ -3,32 +3,75 @@ import '../../../../app/theme/app_colors.dart';
 import '../../domain/models/habit.dart';
 
 class AddHabitScreen extends StatefulWidget {
-  const AddHabitScreen({super.key});
+  final Habit? habit;
+
+  const AddHabitScreen({super.key, this.habit});
+
+  bool get isEditing => habit != null;
 
   @override
   State<AddHabitScreen> createState() => _AddHabitScreenState();
 }
 
 class _AddHabitScreenState extends State<AddHabitScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  String _selectedEmoji = '🌱';
-  Color _selectedColor = AppColors.primary;
-  String _trackingType = 'Completion';
-  String _counterGoal = '';
-  String _counterUnit = 'times';
-  String _counterGoalPeriod = 'Daily';
-  String _scheduleType = 'Every day';
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+
+  late String _selectedEmoji;
+  late Color _selectedColor;
+  late String _trackingType;
+  late String _counterGoal;
+  late String _counterUnit;
+  late String _counterGoalPeriod;
+  late String _scheduleType;
+
+  late final Set<int> _selectedWeekdays;
+
+  late int _everyNDays;
+  late int _weeklyTarget;
+
   bool _showNameError = false;
   bool _showCounterGoalError = false;
   bool _showScheduleError = false;
   bool _showCounterUnitError = false;
 
-  final Set<int> _selectedWeekdays = {};
+  @override
+  void initState() {
+    super.initState();
 
-  int _everyNDays = 2;
+    final habit = widget.habit;
 
-  int _weeklyTarget = 3;
+    _nameController = TextEditingController(text: habit?.name ?? '');
+
+    _descriptionController = TextEditingController(
+      text: habit?.description ?? '',
+    );
+
+    _selectedEmoji = habit?.emoji ?? '🌱';
+    _selectedColor = habit?.color ?? AppColors.primary;
+
+    _trackingType = habit?.trackingType == TrackingType.counter
+        ? 'Counter'
+        : 'Completion';
+
+    _counterGoal = habit?.counterGoal?.toString() ?? '';
+    _counterUnit = habit?.counterUnit ?? 'times';
+
+    _counterGoalPeriod = habit?.counterGoalPeriod == CounterGoalPeriod.weekly
+        ? 'Weekly'
+        : 'Daily';
+
+    _scheduleType = switch (habit?.scheduleType) {
+      HabitScheduleType.selectedDays => 'Selected days',
+      HabitScheduleType.everyNDays => 'Every N days',
+      HabitScheduleType.weeklyTarget => 'Weekly target',
+      _ => 'Every day',
+    };
+
+    _selectedWeekdays = Set<int>.from(habit?.selectedWeekdays ?? {});
+    _everyNDays = habit?.everyNDays ?? 2;
+    _weeklyTarget = habit?.weeklyTarget ?? 3;
+  }
 
   @override
   void dispose() {
@@ -40,7 +83,9 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Habit')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit Habit' : 'New Habit'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -549,47 +594,46 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                     return;
                   }
 
+                  final existingHabit = widget.habit;
+
                   final habit = Habit(
-                    id: DateTime.now().microsecondsSinceEpoch.toString(),
+                    id:
+                        existingHabit?.id ??
+                        DateTime.now().microsecondsSinceEpoch.toString(),
                     name: _nameController.text.trim(),
                     description: _descriptionController.text.trim(),
                     emoji: _selectedEmoji,
                     color: _selectedColor,
-
                     trackingType: _trackingType == 'Counter'
                         ? TrackingType.counter
                         : TrackingType.completion,
-
                     counterGoal:
                         _trackingType == 'Counter' &&
                             _counterGoal.trim().isNotEmpty
-                        ? int.parse(_counterGoal.trim())
+                        ? int.tryParse(_counterGoal.trim())
                         : null,
-
                     counterUnit: _counterUnit.trim().isEmpty
                         ? 'times'
                         : _counterUnit.trim(),
-
                     counterGoalPeriod: _counterGoalPeriod == 'Weekly'
                         ? CounterGoalPeriod.weekly
                         : CounterGoalPeriod.daily,
-
-                    scheduleType: switch (_scheduleType) {
-                      'Selected days' => HabitScheduleType.selectedDays,
-                      'Every N days' => HabitScheduleType.everyNDays,
-                      'Weekly target' => HabitScheduleType.weeklyTarget,
-                      _ => HabitScheduleType.everyDay,
-                    },
-
+                    scheduleType: _scheduleType == 'Selected days'
+                        ? HabitScheduleType.selectedDays
+                        : _scheduleType == 'Every N days'
+                        ? HabitScheduleType.everyNDays
+                        : _scheduleType == 'Weekly target'
+                        ? HabitScheduleType.weeklyTarget
+                        : HabitScheduleType.everyDay,
                     selectedWeekdays: Set<int>.unmodifiable(_selectedWeekdays),
                     everyNDays: _everyNDays,
                     weeklyTarget: _weeklyTarget,
-                    createdAt: DateTime.now(),
+                    createdAt: existingHabit?.createdAt ?? DateTime.now(),
                   );
 
                   Navigator.pop(context, habit);
                 },
-                child: const Text('Create Habit'),
+                child: Text(widget.isEditing ? 'Save Changes' : 'Create Habit'),
               ),
             ),
           ],
