@@ -1,0 +1,64 @@
+import 'package:sqflite/sqflite.dart';
+
+import '../../../../core/database/app_database.dart';
+import '../../domain/models/habit_progress.dart';
+
+class HabitProgressLocalDataSource {
+  final AppDatabase _appDatabase;
+
+  HabitProgressLocalDataSource({
+    AppDatabase? appDatabase,
+  }) : _appDatabase = appDatabase ?? AppDatabase.instance;
+
+  Future<void> saveProgress(HabitProgress progress) async {
+    final db = await _appDatabase.database;
+
+    await db.insert(
+      'habit_logs',
+      progress.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<HabitProgress?> getProgress(
+    String habitId,
+    DateTime date,
+  ) async {
+    final db = await _appDatabase.database;
+
+    final dateKey =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+
+    final results = await db.query(
+      'habit_logs',
+      where: 'habit_id = ? AND date = ?',
+      whereArgs: [habitId, dateKey],
+      limit: 1,
+    );
+
+    if (results.isEmpty) {
+      return null;
+    }
+
+    return HabitProgress.fromMap(results.first);
+  }
+
+  Future<List<HabitProgress>> getProgressForDate(DateTime date) async {
+    final db = await _appDatabase.database;
+
+    final dateKey =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+
+    final results = await db.query(
+      'habit_logs',
+      where: 'date = ?',
+      whereArgs: [dateKey],
+    );
+
+    return results.map((map) => HabitProgress.fromMap(map)).toList();
+  }
+}

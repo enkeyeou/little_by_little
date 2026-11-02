@@ -67,7 +67,7 @@ class _AppShellState extends State<AppShell> {
                     debugPrint('Failed to save habit: $error');
                     debugPrintStack(stackTrace: stackTrace);
 
-                    if (!mounted) return;
+                    if (!context.mounted) return;
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Could not save habit: $error')),

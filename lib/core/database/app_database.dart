@@ -23,15 +23,13 @@ class AppDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
     );
   }
 
-  Future<void> _createDatabase(
-    Database db,
-    int version,
-  ) async {
+  Future<void> _createDatabase(Database db, int version) async {
     await db.execute('''
       CREATE TABLE habits (
         id TEXT PRIMARY KEY,
@@ -48,6 +46,30 @@ class AppDatabase {
         every_n_days INTEGER NOT NULL,
         weekly_target INTEGER NOT NULL,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await _createHabitLogsTable(db);
+  }
+
+  Future<void> _upgradeDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await _createHabitLogsTable(db);
+    }
+  }
+
+  Future<void> _createHabitLogsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE habit_logs (
+        habit_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (habit_id, date)
       )
     ''');
   }

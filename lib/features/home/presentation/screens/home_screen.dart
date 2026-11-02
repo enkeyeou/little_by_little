@@ -1,11 +1,68 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../habits/domain/models/habit.dart';
+import '../../../habits/data/datasources/habit_progress_local_data_source.dart';
+import '../../../habits/domain/models/habit_progress.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
 
   const HomeScreen({super.key, required this.habits});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final HabitProgressLocalDataSource _progressDataSource =
+      HabitProgressLocalDataSource();
+
+  final Map<String, HabitProgress> _todayProgress = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayProgress();
+  }
+
+  Future<void> _loadTodayProgress() async {
+    final progress = await _progressDataSource.getProgressForDate(
+      DateTime.now(),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _todayProgress.clear();
+
+      for (final item in progress) {
+        _todayProgress[item.habitId] = item;
+      }
+    });
+  }
+
+  bool _isCompleted(String habitId) {
+    return _todayProgress[habitId]?.isCompleted ?? false;
+  }
+
+  Future<void> _toggleCompletion(Habit habit) async {
+    final isNowCompleted = !_isCompleted(habit.id);
+
+    final progress = HabitProgress(
+      habitId: habit.id,
+      date: DateTime.now(),
+      isCompleted: isNowCompleted,
+      count: _todayProgress[habit.id]?.count ?? 0,
+    );
+
+    await _progressDataSource.saveProgress(progress);
+
+    if (!mounted) return;
+
+    setState(() {
+      _todayProgress[habit.id] = progress;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +180,7 @@ class HomeScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
-                  '${habits.length} ${habits.length == 1 ? 'habit' : 'habits'}',
+                  '${widget.habits.length} ${widget.habits.length == 1 ? 'habit' : 'habits'}',
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 12,
@@ -136,7 +193,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Habits List or Empty State
-            if (habits.isEmpty)
+            if (widget.habits.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -178,7 +235,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               )
             else
-              ...habits.map((habit) {
+              ...widget.habits.map((habit) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
@@ -230,7 +287,20 @@ class HomeScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.circle, color: habit.color, size: 10),
+                      IconButton(
+                        onPressed: () => _toggleCompletion(habit),
+                        icon: Icon(
+                          _isCompleted(habit.id)
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: _isCompleted(habit.id)
+                              ? AppColors.primary
+                              : AppColors.textMuted,
+                        ),
+                        tooltip: _isCompleted(habit.id)
+                            ? 'Mark as incomplete'
+                            : 'Mark as complete',
+                      ),
                     ],
                   ),
                 );
