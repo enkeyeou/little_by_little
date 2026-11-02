@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final Map<String, HabitProgress> _todayProgress = {};
   final Map<String, int> _weeklyCounts = {};
+  final Map<String, int> _weeklyTargetCounts = {};
 
   @override
   void initState() {
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _todayProgress.clear();
       _weeklyCounts.clear();
+      _weeklyTargetCounts.clear();
 
       for (final item in todayProgress) {
         _todayProgress[item.habitId] = item;
@@ -68,6 +70,14 @@ class _HomeScreenState extends State<HomeScreen> {
           (count) => count + item.count,
           ifAbsent: () => item.count,
         );
+
+        if (item.isCompleted || item.count > 0) {
+          _weeklyTargetCounts.update(
+            item.habitId,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
+        }
       }
     });
   }
@@ -76,11 +86,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return _todayProgress[habitId]?.isCompleted ?? false;
   }
 
-  int get _totalHabits => widget.habits
+  List<Habit> get _todaysHabits {
+    final today = DateTime.now();
+
+    return widget.habits.where((habit) => habit.isScheduledFor(today)).toList();
+  }
+
+  int get _totalHabits => _todaysHabits
       .where((habit) => habit.trackingType == TrackingType.completion)
       .length;
 
-  int get _completedHabits => widget.habits
+  int get _completedHabits => _todaysHabits
       .where(
         (habit) =>
             habit.trackingType == TrackingType.completion &&
@@ -108,6 +124,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return currentCount >= habit.counterGoal!;
   }
 
+  bool _isWeeklyTargetReached(Habit habit) {
+    if (habit.scheduleType != HabitScheduleType.weeklyTarget) {
+      return false;
+    }
+
+    final completedOccurrences = _weeklyTargetCounts[habit.id] ?? 0;
+
+    return completedOccurrences >= habit.weeklyTarget;
+  }
+
   Future<void> _toggleCompletion(Habit habit) async {
     final isNowCompleted = !_isCompleted(habit.id);
 
@@ -124,6 +150,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _todayProgress[habit.id] = progress;
+
+      final currentOccurrences = _weeklyTargetCounts[habit.id] ?? 0;
+
+      if (isNowCompleted) {
+        _weeklyTargetCounts[habit.id] = currentOccurrences + 1;
+      } else {
+        _weeklyTargetCounts[habit.id] = (currentOccurrences - 1).clamp(
+          0,
+          999999,
+        );
+      }
     });
   }
 
@@ -154,6 +191,17 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _todayProgress[habit.id] = progress;
       _weeklyCounts[habit.id] = weeklyCount;
+
+      final currentOccurrences = _weeklyTargetCounts[habit.id] ?? 0;
+
+      if (currentCount == 0 && newCount > 0) {
+        _weeklyTargetCounts[habit.id] = currentOccurrences + 1;
+      } else if (currentCount > 0 && newCount == 0) {
+        _weeklyTargetCounts[habit.id] = (currentOccurrences - 1).clamp(
+          0,
+          999999,
+        );
+      }
     });
   }
 
@@ -273,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
-                  '${widget.habits.length} ${widget.habits.length == 1 ? 'habit' : 'habits'}',
+                  '${_todaysHabits.length} ${_todaysHabits.length == 1 ? 'habit' : 'habits'}',
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 12,
@@ -286,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
 
             // Habits List or Empty State
-            if (widget.habits.isEmpty)
+            if (_todaysHabits.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -328,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             else
-              ...widget.habits.map((habit) {
+              ..._todaysHabits.map((habit) {
                 return GestureDetector(
                   onTap: () async {
                     final updatedHabit = await Navigator.push<Habit>(
@@ -393,6 +441,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ],
+                              if (habit.scheduleType ==
+                                  HabitScheduleType.weeklyTarget) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${_weeklyTargetCounts[habit.id] ?? 0} / ${habit.weeklyTarget} times this week',
+                                  style: TextStyle(
+                                    color: _isWeeklyTargetReached(habit)
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -405,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: AppColors.textSecondary,
                           ),
                           Text(
-                            '${_getTodayCount(habit.id)}',
+                            '${habit.counterGoalPeriod == CounterGoalPeriod.weekly ? _weeklyCounts[habit.id] ?? 0 : _getTodayCount(habit.id)}',
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w600,

@@ -43,6 +43,35 @@ class Habit {
     this.weeklyTarget = 3,
     required this.createdAt,
   });
+
+  bool isScheduledFor(DateTime date) {
+    switch (scheduleType) {
+      case HabitScheduleType.everyDay:
+        return true;
+
+      case HabitScheduleType.selectedDays:
+        return selectedWeekdays.contains(date.weekday);
+
+      case HabitScheduleType.everyNDays:
+        if (everyNDays <= 0) return false;
+
+        final startDate = DateTime(
+          createdAt.year,
+          createdAt.month,
+          createdAt.day,
+        );
+
+        final targetDate = DateTime(date.year, date.month, date.day);
+
+        final difference = targetDate.difference(startDate).inDays;
+
+        return difference >= 0 && difference % everyNDays == 0;
+
+      case HabitScheduleType.weeklyTarget:
+        return true;
+    }
+  }
+
   // Convert Habit into a database-friendly map.
   Map<String, dynamic> toMap() {
     return {
