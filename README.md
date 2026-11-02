@@ -1,17 +1,42 @@
-# little_by_little
+# Little by Little
 
-A new Flutter project.
+An offline-first personal habit tracker built with Flutter.
+
+Little by Little is a personal habit-tracking application designed to help users build consistency through small, meaningful daily actions. It focuses on flexible habit scheduling, gentle streak tracking, and progress insights without relying on an internet connection.
+
+## Features
+
+- Flexible habit scheduling
+- Completion-based and counter-based habits
+- Daily and weekly goals
+- Gentle streak tracking
+- Progress analytics and history
+- Offline-first data storage
+
+## Tech Stack
+
+- Flutter
+- Dart
+- SQLite (planned)
+
+## Project Status
+
+Currently under development.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+To run the project locally:
 
-A few resources to get you started if this is your first Flutter project:
+1. Install [Flutter](https://docs.flutter.dev/get-started/install).
+2. Clone this repository.
+3. Navigate to the project directory.
+4. Run the following commands:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## License
+
+To be determined.
