@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme/app_colors.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/habits/presentation/screens/add_habit_screen.dart';
+import '../features/habits/domain/models/habit.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -12,12 +13,13 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  final List<Habit> _habits = [];
 
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    Center(child: Text('Insights')),
-    Center(child: Text('History')),
-    Center(child: Text('Settings')),
+  List<Widget> get _pages => [
+    HomeScreen(habits: _habits),
+    const Center(child: Text('Insights')),
+    const Center(child: Text('History')),
+    const Center(child: Text('Settings')),
   ];
 
   @override
@@ -26,13 +28,19 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(index: _selectedIndex, children: _pages),
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final habit = await Navigator.push<Habit>(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const AddHabitScreen(),
                   ),
                 );
+
+                if (habit != null) {
+                  setState(() {
+                    _habits.add(habit);
+                  });
+                }
               },
               icon: const Icon(Icons.add),
               label: const Text('Add Habit'),
