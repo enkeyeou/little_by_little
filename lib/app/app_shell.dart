@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme/app_colors.dart';
+import '../features/home/presentation/screens/home_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -12,7 +13,7 @@ class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    Center(child: Text('Home')),
+    HomeScreen(),
     Center(child: Text('Insights')),
     Center(child: Text('History')),
     Center(child: Text('Settings')),
