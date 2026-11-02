@@ -3,6 +3,7 @@ import 'theme/app_colors.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/habits/presentation/screens/add_habit_screen.dart';
 import '../features/habits/domain/models/habit.dart';
+import '../features/habits/data/datasources/habit_local_data_source.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -14,6 +15,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
   final List<Habit> _habits = [];
+  final HabitLocalDataSource _habitDataSource = HabitLocalDataSource();
 
   List<Widget> get _pages => [
     HomeScreen(habits: _habits),
@@ -21,6 +23,22 @@ class _AppShellState extends State<AppShell> {
     const Center(child: Text('History')),
     const Center(child: Text('Settings')),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHabits();
+  }
+
+  Future<void> _loadHabits() async {
+    final savedHabits = await _habitDataSource.getAllHabits();
+
+    if (!mounted) return;
+
+    setState(() {
+      _habits.addAll(savedHabits);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +55,24 @@ class _AppShellState extends State<AppShell> {
                 );
 
                 if (habit != null) {
-                  setState(() {
-                    _habits.add(habit);
-                  });
+                  try {
+                    await _habitDataSource.insertHabit(habit);
+
+                    if (!mounted) return;
+
+                    setState(() {
+                      _habits.add(habit);
+                    });
+                  } catch (error, stackTrace) {
+                    debugPrint('Failed to save habit: $error');
+                    debugPrintStack(stackTrace: stackTrace);
+
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Could not save habit: $error')),
+                    );
+                  }
                 }
               },
               icon: const Icon(Icons.add),
