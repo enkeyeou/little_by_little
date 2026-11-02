@@ -6,9 +6,8 @@ import '../../domain/models/habit_progress.dart';
 class HabitProgressLocalDataSource {
   final AppDatabase _appDatabase;
 
-  HabitProgressLocalDataSource({
-    AppDatabase? appDatabase,
-  }) : _appDatabase = appDatabase ?? AppDatabase.instance;
+  HabitProgressLocalDataSource({AppDatabase? appDatabase})
+    : _appDatabase = appDatabase ?? AppDatabase.instance;
 
   Future<void> saveProgress(HabitProgress progress) async {
     final db = await _appDatabase.database;
@@ -20,10 +19,7 @@ class HabitProgressLocalDataSource {
     );
   }
 
-  Future<HabitProgress?> getProgress(
-    String habitId,
-    DateTime date,
-  ) async {
+  Future<HabitProgress?> getProgress(String habitId, DateTime date) async {
     final db = await _appDatabase.database;
 
     final dateKey =
@@ -57,6 +53,27 @@ class HabitProgressLocalDataSource {
       'habit_logs',
       where: 'date = ?',
       whereArgs: [dateKey],
+    );
+
+    return results.map((map) => HabitProgress.fromMap(map)).toList();
+  }
+
+  Future<List<HabitProgress>> getProgressBetweenDates(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final db = await _appDatabase.database;
+
+    String formatDate(DateTime date) {
+      return '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+    }
+
+    final results = await db.query(
+      'habit_logs',
+      where: 'date BETWEEN ? AND ?',
+      whereArgs: [formatDate(startDate), formatDate(endDate)],
     );
 
     return results.map((map) => HabitProgress.fromMap(map)).toList();

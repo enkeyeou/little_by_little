@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
       HabitProgressLocalDataSource();
 
   final Map<String, HabitProgress> _todayProgress = {};
+  final Map<String, int> _weeklyCounts = {};
 
   @override
   void initState() {
@@ -26,17 +27,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTodayProgress() async {
-    final progress = await _progressDataSource.getProgressForDate(
-      DateTime.now(),
+    final today = DateTime.now();
+
+    final todayProgress = await _progressDataSource.getProgressForDate(today);
+
+    final weekStart = DateTime(
+      today.year,
+      today.month,
+      today.day - (today.weekday - 1),
+    );
+
+    final weekEnd = weekStart.add(const Duration(days: 6));
+
+    final weeklyProgress = await _progressDataSource.getProgressBetweenDates(
+      weekStart,
+      weekEnd,
     );
 
     if (!mounted) return;
 
     setState(() {
       _todayProgress.clear();
+      _weeklyCounts.clear();
 
-      for (final item in progress) {
+      for (final item in todayProgress) {
         _todayProgress[item.habitId] = item;
+      }
+
+      for (final item in weeklyProgress) {
+        _weeklyCounts.update(
+          item.habitId,
+          (count) => count + item.count,
+          ifAbsent: () => item.count,
+        );
       }
     });
   }
@@ -60,6 +83,23 @@ class _HomeScreenState extends State<HomeScreen> {
   double get _dailyProgress =>
       _totalHabits == 0 ? 0 : _completedHabits / _totalHabits;
 
+  int _getTodayCount(String habitId) {
+    return _todayProgress[habitId]?.count ?? 0;
+  }
+
+  bool _isCounterGoalReached(Habit habit) {
+    if (habit.trackingType != TrackingType.counter ||
+        habit.counterGoal == null) {
+      return false;
+    }
+
+    final currentCount = habit.counterGoalPeriod == CounterGoalPeriod.daily
+        ? _getTodayCount(habit.id)
+        : _weeklyCounts[habit.id] ?? 0;
+
+    return currentCount >= habit.counterGoal!;
+  }
+
   Future<void> _toggleCompletion(Habit habit) async {
     final isNowCompleted = !_isCompleted(habit.id);
 
@@ -79,11 +119,41 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _updateCounter(Habit habit, int change) async {
+    final currentCount = _getTodayCount(habit.id);
+    final newCount = (currentCount + change).clamp(0, 999999);
+
+    final weeklyCount =
+        (_weeklyCounts[habit.id] ?? 0) - currentCount + newCount;
+
+    final isCompleted =
+        habit.counterGoal != null &&
+        (habit.counterGoalPeriod == CounterGoalPeriod.daily
+            ? newCount >= habit.counterGoal!
+            : weeklyCount >= habit.counterGoal!);
+
+    final progress = HabitProgress(
+      habitId: habit.id,
+      date: DateTime.now(),
+      isCompleted: isCompleted,
+      count: newCount,
+    );
+
+    await _progressDataSource.saveProgress(progress);
+
+    if (!mounted) return;
+
+    setState(() {
+      _todayProgress[habit.id] = progress;
+      _weeklyCounts[habit.id] = weeklyCount;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -302,20 +372,46 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => _toggleCompletion(habit),
-                        icon: Icon(
-                          _isCompleted(habit.id)
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color: _isCompleted(habit.id)
-                              ? AppColors.primary
-                              : AppColors.textMuted,
+                      if (habit.trackingType == TrackingType.counter) ...[
+                        IconButton(
+                          onPressed: _getTodayCount(habit.id) > 0
+                              ? () => _updateCounter(habit, -1)
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                          color: AppColors.textSecondary,
                         ),
-                        tooltip: _isCompleted(habit.id)
-                            ? 'Mark as incomplete'
-                            : 'Mark as complete',
-                      ),
+                        Text(
+                          '${_getTodayCount(habit.id)}',
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _updateCounter(habit, 1),
+                          icon: const Icon(Icons.add_circle_outline),
+                          color: AppColors.primary,
+                        ),
+                        if (_isCounterGoalReached(habit))
+                          const Icon(
+                            Icons.check_circle,
+                            color: AppColors.primary,
+                          ),
+                      ] else
+                        IconButton(
+                          onPressed: () => _toggleCompletion(habit),
+                          icon: Icon(
+                            _isCompleted(habit.id)
+                                ? Icons.check_circle
+                                : Icons.circle_outlined,
+                            color: _isCompleted(habit.id)
+                                ? AppColors.primary
+                                : AppColors.textMuted,
+                          ),
+                          tooltip: _isCompleted(habit.id)
+                              ? 'Mark as incomplete'
+                              : 'Mark as complete',
+                        ),
                     ],
                   ),
                 );
