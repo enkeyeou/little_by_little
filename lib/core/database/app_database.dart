@@ -23,7 +23,7 @@ class AppDatabase {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -50,6 +50,7 @@ class AppDatabase {
     ''');
 
     await _createHabitLogsTable(db);
+    await _createDailyTasksTable(db);
   }
 
   Future<void> _upgradeDatabase(
@@ -59,6 +60,23 @@ class AppDatabase {
   ) async {
     if (oldVersion < 2) {
       await _createHabitLogsTable(db);
+    }
+    if (oldVersion < 3) {
+      await _createDailyTasksTable(db);
+    }
+    if (oldVersion < 4) {
+      final columns = await db.rawQuery('PRAGMA table_info(daily_tasks)');
+
+      final hasPinnedColumn = columns.any(
+        (column) => column['name'] == 'is_pinned',
+      );
+
+      if (!hasPinnedColumn) {
+        await db.execute('''
+      ALTER TABLE daily_tasks
+      ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0
+    ''');
+      }
     }
   }
 
@@ -72,5 +90,19 @@ class AppDatabase {
         PRIMARY KEY (habit_id, date)
       )
     ''');
+  }
+
+  Future<void> _createDailyTasksTable(Database db) async {
+    await db.execute('''
+    CREATE TABLE daily_tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      date TEXT NOT NULL,
+      is_completed INTEGER NOT NULL DEFAULT 0,
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  ''');
   }
 }
