@@ -78,4 +78,17 @@ class HabitProgressLocalDataSource {
 
     return results.map((map) => HabitProgress.fromMap(map)).toList();
   }
+
+  Future<List<HabitProgress>> getProgressForHabit(String habitId) async {
+    final db = await _appDatabase.database;
+
+    final results = await db.query(
+      'habit_logs',
+      where: 'habit_id = ?',
+      whereArgs: [habitId],
+      orderBy: 'date ASC',
+    );
+
+    return results.map((map) => HabitProgress.fromMap(map)).toList();
+  }
 }

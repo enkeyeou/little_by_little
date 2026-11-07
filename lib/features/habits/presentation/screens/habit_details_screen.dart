@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/models/habit.dart';
 import 'add_habit_screen.dart';
+import '../../data/datasources/habit_progress_local_data_source.dart';
+import '../../domain/models/habit_progress.dart';
 
-class HabitDetailsScreen extends StatelessWidget {
+class HabitDetailsScreen extends StatefulWidget {
   final Habit habit;
   final Future<bool> Function(String id)? onHabitDeleted;
 
@@ -14,8 +16,282 @@ class HabitDetailsScreen extends StatelessWidget {
     this.onHabitDeleted,
   });
 
+  @override
+  State<HabitDetailsScreen> createState() => _HabitDetailsScreenState();
+}
+
+class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
+  final HabitProgressLocalDataSource _progressDataSource =
+      HabitProgressLocalDataSource();
+
+  List<HabitProgress> _progressHistory = [];
+  bool _isLoadingProgress = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgressHistory();
+  }
+
+  Future<void> _loadProgressHistory() async {
+    final history = await _progressDataSource.getProgressForHabit(
+      widget.habit.id,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _progressHistory = history;
+      _isLoadingProgress = false;
+    });
+  }
+
+  int _getTotalCompletions() {
+    if (widget.habit.trackingType == TrackingType.completion) {
+      return _progressHistory.where((progress) => progress.isCompleted).length;
+    }
+
+    return _progressHistory.fold(
+      0,
+      (total, progress) => total + progress.count,
+    );
+  }
+
+  int _getHighestDailyCount() {
+    if (_progressHistory.isEmpty) return 0;
+
+    return _progressHistory.fold(
+      0,
+      (highest, progress) =>
+          progress.count > highest ? progress.count : highest,
+    );
+  }
+
+  bool _usesWeeklyStreak() {
+    return widget.habit.scheduleType == HabitScheduleType.weeklyTarget ||
+        (widget.habit.trackingType == TrackingType.counter &&
+            widget.habit.counterGoalPeriod == CounterGoalPeriod.weekly);
+  }
+
+  DateTime _getWeekStart(DateTime date) {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+
+    return normalizedDate.subtract(Duration(days: normalizedDate.weekday - 1));
+  }
+
+  DateTime _getFirstFullWeekStart() {
+    final createdWeek = _getWeekStart(widget.habit.createdAt);
+
+    if (widget.habit.createdAt.weekday == DateTime.monday) {
+      return createdWeek;
+    }
+
+    return createdWeek.add(const Duration(days: 7));
+  }
+
+  bool _isWeekSuccessful(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final today = DateTime.now();
+    final effectiveWeekEnd = today.isBefore(weekEnd)
+        ? DateTime(today.year, today.month, today.day)
+        : weekEnd;
+
+    final createdDate = DateTime(
+      widget.habit.createdAt.year,
+      widget.habit.createdAt.month,
+      widget.habit.createdAt.day,
+    );
+
+    final relevantProgress = _progressHistory.where((progress) {
+      final date = DateTime(
+        progress.date.year,
+        progress.date.month,
+        progress.date.day,
+      );
+
+      return !date.isBefore(weekStart) &&
+          !date.isAfter(effectiveWeekEnd) &&
+          !date.isBefore(createdDate) &&
+          !weekStart.isBefore(_getFirstFullWeekStart());
+    }).toList();
+
+    if (widget.habit.scheduleType == HabitScheduleType.weeklyTarget) {
+      final successfulOccurrences = relevantProgress.where((progress) {
+        if (widget.habit.trackingType == TrackingType.completion) {
+          return progress.isCompleted;
+        }
+
+        final goal = widget.habit.counterGoal;
+
+        return goal == null ? progress.count > 0 : progress.count >= goal;
+      }).length;
+
+      return successfulOccurrences >= widget.habit.weeklyTarget;
+    }
+
+    final totalCount = relevantProgress.fold(
+      0,
+      (total, progress) => total + progress.count,
+    );
+
+    final goal = widget.habit.counterGoal;
+
+    return goal == null ? totalCount > 0 : totalCount >= goal;
+  }
+
+  int _getCurrentStreak() {
+    if (_usesWeeklyStreak()) {
+      final today = DateTime.now();
+      final currentWeek = _getWeekStart(today);
+      final createdWeek = _getFirstFullWeekStart();
+
+      int streak = 0;
+      DateTime week = currentWeek;
+
+      if (today.weekday != DateTime.sunday && !_isWeekSuccessful(currentWeek)) {
+        week = week.subtract(const Duration(days: 7));
+      }
+
+      while (!week.isBefore(createdWeek)) {
+        if (!_isWeekSuccessful(week)) {
+          break;
+        }
+
+        streak++;
+        week = week.subtract(const Duration(days: 7));
+      }
+
+      return streak;
+    }
+    final today = DateTime.now();
+    final createdDate = DateTime(
+      widget.habit.createdAt.year,
+      widget.habit.createdAt.month,
+      widget.habit.createdAt.day,
+    );
+
+    final progressByDate = {
+      for (final progress in _progressHistory)
+        DateTime(progress.date.year, progress.date.month, progress.date.day):
+            progress,
+    };
+
+    bool isSuccessful(DateTime date) {
+      final progress = progressByDate[date];
+
+      if (progress == null) return false;
+
+      if (widget.habit.trackingType == TrackingType.completion) {
+        return progress.isCompleted;
+      }
+
+      final goal = widget.habit.counterGoal;
+
+      return goal == null ? progress.count > 0 : progress.count >= goal;
+    }
+
+    int streak = 0;
+    DateTime date = DateTime(today.year, today.month, today.day);
+
+    while (!date.isBefore(createdDate)) {
+      if (widget.habit.isScheduledFor(date)) {
+        if (!isSuccessful(date)) {
+          break;
+        }
+
+        streak++;
+      }
+
+      date = date.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  int _getBestStreak() {
+    if (_usesWeeklyStreak()) {
+      final today = DateTime.now();
+      final createdWeek = _getFirstFullWeekStart();
+      final currentWeek = _getWeekStart(today);
+
+      int currentStreak = 0;
+      int bestStreak = 0;
+
+      DateTime week = createdWeek;
+
+      while (!week.isAfter(currentWeek)) {
+        final isCurrentWeek = week == currentWeek;
+
+        // Ignore an unfinished current week.
+        if (isCurrentWeek &&
+            today.weekday != DateTime.sunday &&
+            !_isWeekSuccessful(week)) {
+          break;
+        }
+
+        if (_isWeekSuccessful(week)) {
+          currentStreak++;
+
+          if (currentStreak > bestStreak) {
+            bestStreak = currentStreak;
+          }
+        } else {
+          currentStreak = 0;
+        }
+
+        week = week.add(const Duration(days: 7));
+      }
+
+      return bestStreak;
+    }
+    final createdDate = DateTime(
+      widget.habit.createdAt.year,
+      widget.habit.createdAt.month,
+      widget.habit.createdAt.day,
+    );
+
+    final today = DateTime.now();
+    int currentStreak = 0;
+    int bestStreak = 0;
+
+    final progressByDate = {
+      for (final progress in _progressHistory)
+        DateTime(progress.date.year, progress.date.month, progress.date.day):
+            progress,
+    };
+
+    DateTime date = createdDate;
+
+    while (!date.isAfter(today)) {
+      if (widget.habit.isScheduledFor(date)) {
+        final progress = progressByDate[date];
+
+        final isSuccessful =
+            progress != null &&
+            (widget.habit.trackingType == TrackingType.completion
+                ? progress.isCompleted
+                : widget.habit.counterGoal == null
+                ? progress.count > 0
+                : progress.count >= widget.habit.counterGoal!);
+
+        if (isSuccessful) {
+          currentStreak++;
+          if (currentStreak > bestStreak) {
+            bestStreak = currentStreak;
+          }
+        } else {
+          currentStreak = 0;
+        }
+      }
+
+      date = date.add(const Duration(days: 1));
+    }
+
+    return bestStreak;
+  }
+
   String _getScheduleDescription() {
-    switch (habit.scheduleType) {
+    switch (widget.habit.scheduleType) {
       case HabitScheduleType.everyDay:
         return 'Every day';
 
@@ -30,18 +306,20 @@ class HabitDetailsScreen extends StatelessWidget {
           'Sunday',
         ];
 
-        return habit.selectedWeekdays.map((day) => days[day - 1]).join(', ');
+        return widget.habit.selectedWeekdays
+            .map((day) => days[day - 1])
+            .join(', ');
 
       case HabitScheduleType.everyNDays:
-        return 'Every ${habit.everyNDays} days';
+        return 'Every ${widget.habit.everyNDays} days';
 
       case HabitScheduleType.weeklyTarget:
-        return '${habit.weeklyTarget} times per week';
+        return '${widget.habit.weeklyTarget} times per week';
     }
   }
 
   String _getTrackingDescription() {
-    return habit.trackingType == TrackingType.completion
+    return widget.habit.trackingType == TrackingType.completion
         ? 'Completion-based'
         : 'Counter-based';
   }
@@ -63,7 +341,7 @@ class HabitDetailsScreen extends StatelessWidget {
               final updatedHabit = await Navigator.push<Habit>(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => AddHabitScreen(habit: habit),
+                  builder: (context) => AddHabitScreen(habit: widget.habit),
                 ),
               );
 
@@ -81,7 +359,7 @@ class HabitDetailsScreen extends StatelessWidget {
                 builder: (dialogContext) => AlertDialog(
                   title: const Text('Delete habit?'),
                   content: Text(
-                    'Are you sure you want to delete "${habit.name}"? '
+                    'Are you sure you want to delete "${widget.habit.name}"? '
                     'Its progress history will also be deleted. '
                     'This action cannot be undone.',
                   ),
@@ -103,7 +381,8 @@ class HabitDetailsScreen extends StatelessWidget {
 
               if (shouldDelete != true || !context.mounted) return;
 
-              final deleted = await onHabitDeleted?.call(habit.id) ?? false;
+              final deleted =
+                  await widget.onHabitDeleted?.call(widget.habit.id) ?? false;
 
               if (deleted && context.mounted) {
                 Navigator.pop(context);
@@ -123,10 +402,13 @@ class HabitDetailsScreen extends StatelessWidget {
                 height: 90,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: habit.color.withValues(alpha: 0.15),
+                  color: widget.habit.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Text(habit.emoji, style: const TextStyle(fontSize: 42)),
+                child: Text(
+                  widget.habit.emoji,
+                  style: const TextStyle(fontSize: 42),
+                ),
               ),
             ),
 
@@ -134,7 +416,7 @@ class HabitDetailsScreen extends StatelessWidget {
 
             Center(
               child: Text(
-                habit.name,
+                widget.habit.name,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
@@ -144,11 +426,11 @@ class HabitDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            if (habit.description.isNotEmpty) ...[
+            if (widget.habit.description.isNotEmpty) ...[
               const SizedBox(height: 10),
               Center(
                 child: Text(
-                  habit.description,
+                  widget.habit.description,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -158,6 +440,60 @@ class HabitDetailsScreen extends StatelessWidget {
                 ),
               ),
             ],
+
+            const SizedBox(height: 32),
+
+            const Text(
+              'Statistics',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            if (_isLoadingProgress)
+              const Center(child: CircularProgressIndicator())
+            else
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    _buildStatRow(
+                      widget.habit.trackingType == TrackingType.completion
+                          ? 'Total completions'
+                          : 'Total ${widget.habit.counterUnit}',
+                      _getTotalCompletions().toString(),
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (widget.habit.trackingType == TrackingType.counter) ...[
+                      _buildStatRow(
+                        'Highest in a day',
+                        '${_getHighestDailyCount()} ${widget.habit.counterUnit}',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    _buildStatRow(
+                      'Current streak',
+                      '${_getCurrentStreak()} ${_getCurrentStreak() == 1 ? (_usesWeeklyStreak() ? 'week' : 'day') : (_usesWeeklyStreak() ? 'weeks' : 'days')}',
+                    ),
+                    const SizedBox(height: 12),
+
+                    _buildStatRow(
+                      'Best streak',
+                      '${_getBestStreak()} ${_getBestStreak() == 1 ? (_usesWeeklyStreak() ? 'week' : 'day') : (_usesWeeklyStreak() ? 'weeks' : 'days')}',
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 32),
 
@@ -186,15 +522,15 @@ class HabitDetailsScreen extends StatelessWidget {
               value: _getScheduleDescription(),
             ),
 
-            if (habit.trackingType == TrackingType.counter) ...[
+            if (widget.habit.trackingType == TrackingType.counter) ...[
               const SizedBox(height: 12),
               _buildInfoCard(
                 icon: Icons.flag_outlined,
                 title: 'Counter goal',
-                value: habit.counterGoal == null
+                value: widget.habit.counterGoal == null
                     ? 'No goal set'
-                    : '${habit.counterGoal} ${habit.counterUnit} '
-                          '${habit.counterGoalPeriod.name}',
+                    : '${widget.habit.counterGoal} ${widget.habit.counterUnit} '
+                          '${widget.habit.counterGoalPeriod.name}',
               ),
             ],
 
@@ -204,11 +540,31 @@ class HabitDetailsScreen extends StatelessWidget {
               icon: Icons.event_outlined,
               title: 'Created on',
               value:
-                  '${habit.createdAt.month}/${habit.createdAt.day}/${habit.createdAt.year}',
+                  '${widget.habit.createdAt.month}/${widget.habit.createdAt.day}/${widget.habit.createdAt.year}',
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 
