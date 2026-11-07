@@ -7,7 +7,6 @@ import 'home_progress_card.dart';
 class MonthlyActivityCard extends StatelessWidget {
   final DateTime month;
   final DateTime today;
-  final String streakMessage;
   final int Function(DateTime date) getActivityLevel;
   final String Function(DateTime date) getActivityDescription;
   final ValueChanged<int> onMonthChanged;
@@ -16,7 +15,6 @@ class MonthlyActivityCard extends StatelessWidget {
     super.key,
     required this.month,
     required this.today,
-    required this.streakMessage,
     required this.getActivityLevel,
     required this.getActivityDescription,
     required this.onMonthChanged,
@@ -34,62 +32,50 @@ class MonthlyActivityCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Monthly Activity',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Monthly Activity',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      CalendarDates.monthYearLabel(month),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               IconButton(
                 tooltip: 'Previous month',
                 onPressed: () => onMonthChanged(-1),
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(Icons.chevron_left_rounded),
                 color: AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 32,
-                  height: 32,
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    CalendarDates.monthYearLabel(month),
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
               ),
               IconButton(
                 tooltip: 'Next month',
                 onPressed: isCurrentMonth ? null : () => onMonthChanged(1),
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(Icons.chevron_right_rounded),
                 color: isCurrentMonth
                     ? AppColors.textMuted
                     : AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 32,
-                  height: 32,
-                ),
               ),
             ],
-          ),
-          Text(
-            streakMessage,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
           ),
           const SizedBox(height: 10),
           _buildHeatmap(monthStart, weekCount),
@@ -147,7 +133,7 @@ class MonthlyActivityCard extends StatelessWidget {
                             day > CalendarDates.daysInMonth(monthStart)) {
                           return SizedBox(
                             width: cellSize + cellGap,
-                            height: cellSize,
+                            height: cellSize * 0.50,
                           );
                         }
 
@@ -166,7 +152,7 @@ class MonthlyActivityCard extends StatelessWidget {
                               label: '$day: $description',
                               child: Container(
                                 width: cellSize,
-                                height: cellSize,
+                                height: cellSize * 0.50,
                                 decoration: BoxDecoration(
                                   color: _heatColor(level),
                                   borderRadius: BorderRadius.circular(3),

@@ -281,39 +281,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return 5;
   }
 
-  int _getCurrentActivityStreak() {
-    if (widget.habits.isEmpty) return 0;
-
-    var date = _today;
-    final todaySummary = _getDaySummary(date);
-    if (todaySummary.applicable > 0 && todaySummary.successful == 0) {
-      date = date.subtract(const Duration(days: 1));
-    }
-
-    final firstCreatedDate = widget.habits
-        .map((habit) => _dateOnly(habit.createdAt))
-        .reduce((first, created) => created.isBefore(first) ? created : first);
-    var streak = 0;
-    while (!date.isBefore(firstCreatedDate)) {
-      final summary = _getDaySummary(date);
-      if (summary.applicable == 0) {
-        date = date.subtract(const Duration(days: 1));
-        continue;
-      }
-      if (summary.successful == 0) break;
-      streak++;
-      date = date.subtract(const Duration(days: 1));
-    }
-    return streak;
-  }
-
-  String _getActivityStreakMessage() {
-    final streak = _getCurrentActivityStreak();
-    if (streak == 0) return 'Start your streak today!';
-    if (streak >= 7) return "You're on a $streak-day streak. Amazing!";
-    return "You're on a $streak-day streak. Keep going!";
-  }
-
   Widget _buildProgressOverviewCard() {
     return ProgressOverviewPager(
       currentPage: _progressPage,
@@ -345,7 +312,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return MonthlyActivityCard(
       month: _visibleMonth,
       today: _today,
-      streakMessage: _getActivityStreakMessage(),
       getActivityLevel: _getHeatLevel,
       getActivityDescription: _getActivityDescription,
       onMonthChanged: _changeActivityMonth,
