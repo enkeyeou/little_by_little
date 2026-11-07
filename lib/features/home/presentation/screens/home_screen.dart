@@ -411,22 +411,24 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Greeting
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Good afternoon.',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Small steps still count.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Good afternoon.',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Small steps still count.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 const Icon(
                   Icons.spa_outlined,
                   color: AppColors.primary,
@@ -442,14 +444,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Habits Section Header
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Your habits',
-                  style: Theme.of(context).textTheme.titleLarge,
+                Expanded(
+                  child: Text(
+                    'Your habits',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
                 Text(
                   '${_todaysHabits.length} ${_todaysHabits.length == 1 ? 'habit' : 'habits'}',
+                  maxLines: 1,
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 12,

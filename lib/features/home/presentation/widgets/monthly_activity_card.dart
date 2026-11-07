@@ -34,31 +34,38 @@ class MonthlyActivityCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Monthly Activity',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Monthly Activity',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
               IconButton(
                 tooltip: 'Previous month',
                 onPressed: () => onMonthChanged(-1),
                 icon: const Icon(Icons.chevron_left),
                 color: AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
-              Text(
-                _monthLabel(month),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Center(
+                  child: Text(
+                    CalendarDates.monthYearLabel(month),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
               IconButton(
@@ -69,6 +76,11 @@ class MonthlyActivityCard extends StatelessWidget {
                     ? AppColors.textMuted
                     : AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
             ],
           ),
@@ -90,79 +102,94 @@ class MonthlyActivityCard extends StatelessWidget {
 
   Widget _buildHeatmap(DateTime monthStart, int weekCount) {
     final leadingDays = CalendarDates.leadingDaysInMonth(monthStart);
-    const cellSize = 15.0;
     const cellGap = 3.0;
-    const heatmapWidth = (cellSize + cellGap) * 7;
 
-    return Center(
-      child: SizedBox(
-        width: heatmapWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: CalendarDates.weekdayAbbreviations.map((day) {
-                return SizedBox(
-                  width: cellSize + cellGap,
-                  child: Center(
-                    child: Text(
-                      day.substring(0, 1),
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 4),
-            ...List.generate(weekCount, (weekIndex) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: cellGap),
-                child: Row(
-                  children: List.generate(7, (weekdayIndex) {
-                    final day = weekIndex * 7 + weekdayIndex - leadingDays + 1;
-                    if (day < 1 ||
-                        day > CalendarDates.daysInMonth(monthStart)) {
-                      return const SizedBox(
-                        width: cellSize + cellGap,
-                        height: cellSize,
-                      );
-                    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellSize = ((constraints.maxWidth - 7 * cellGap) / 7).clamp(
+          24.0,
+          42.0,
+        );
+        final gridWidth = (cellSize + cellGap) * 7;
 
-                    final date = DateTime(month.year, month.month, day);
-                    final level = getActivityLevel(date);
-                    final description = getActivityDescription(date);
-                    return Padding(
-                      padding: const EdgeInsets.only(right: cellGap),
-                      child: Tooltip(
-                        message: '$day: $description',
-                        child: Semantics(
-                          label: '$day: $description',
-                          child: Container(
-                            width: cellSize,
-                            height: cellSize,
-                            decoration: BoxDecoration(
-                              color: _heatColor(level),
-                              borderRadius: BorderRadius.circular(2),
-                              border: Border.all(
-                                color: AppColors.border.withValues(alpha: 0.5),
-                                width: 0.4,
-                              ),
-                            ),
+        return Center(
+          child: SizedBox(
+            width: gridWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: CalendarDates.weekdayAbbreviations.map((day) {
+                    return SizedBox(
+                      width: cellSize + cellGap,
+                      child: Center(
+                        child: Text(
+                          day.substring(0, 1),
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     );
-                  }),
+                  }).toList(),
                 ),
-              );
-            }),
-          ],
-        ),
-      ),
+                const SizedBox(height: 4),
+                ...List.generate(weekCount, (weekIndex) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: cellGap),
+                    child: Row(
+                      children: List.generate(7, (weekdayIndex) {
+                        final day =
+                            weekIndex * 7 + weekdayIndex - leadingDays + 1;
+                        if (day < 1 ||
+                            day > CalendarDates.daysInMonth(monthStart)) {
+                          return SizedBox(
+                            width: cellSize + cellGap,
+                            height: cellSize,
+                          );
+                        }
+
+                        final date = DateTime(
+                          monthStart.year,
+                          monthStart.month,
+                          day,
+                        );
+                        final level = getActivityLevel(date);
+                        final description = getActivityDescription(date);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: cellGap),
+                          child: Tooltip(
+                            message: '$day: $description',
+                            child: Semantics(
+                              label: '$day: $description',
+                              child: Container(
+                                width: cellSize,
+                                height: cellSize,
+                                decoration: BoxDecoration(
+                                  color: _heatColor(level),
+                                  borderRadius: BorderRadius.circular(3),
+                                  border: Border.all(
+                                    color: AppColors.border.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    width: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -212,23 +239,5 @@ class MonthlyActivityCard extends StatelessWidget {
       default:
         return AppColors.surfaceElevated;
     }
-  }
-
-  String _monthLabel(DateTime date) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[date.month - 1]} ${date.year}';
   }
 }

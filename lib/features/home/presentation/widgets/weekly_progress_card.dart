@@ -20,8 +20,6 @@ class WeeklyProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weekEnd = weekStart.add(const Duration(days: 6));
-
     return HomeProgressCard(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -37,10 +35,7 @@ class WeeklyProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            weekStart.year == weekEnd.year
-                ? '${_dateLabel(weekStart)} – ${_dateLabel(weekEnd)}, ${weekEnd.year}'
-                : '${_dateLabel(weekStart)}, ${weekStart.year} – '
-                      '${_dateLabel(weekEnd)}, ${weekEnd.year}',
+            CalendarDates.weekRangeLabel(weekStart),
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
@@ -101,11 +96,10 @@ class WeeklyProgressCard extends StatelessWidget {
                                       builder: (context, value, _) =>
                                           CircularProgressIndicator(
                                             value: value,
-                                            strokeWidth: 3.5,
+                                            strokeWidth: 4.5,
                                             strokeCap: StrokeCap.round,
-                                            backgroundColor:
-                                                AppColors.surfaceElevated,
-                                            color: AppColors.primary,
+                                            backgroundColor: AppColors.border,
+                                            color: AppColors.warning,
                                           ),
                                     )
                                   else
@@ -114,17 +108,8 @@ class WeeklyProgressCard extends StatelessWidget {
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: AppColors.border,
-                                          width: 3,
+                                          width: 4,
                                         ),
-                                      ),
-                                    ),
-                                  if (hasApplicableHabits && !isUpcoming)
-                                    Text(
-                                      '${(progress * 100).round()}%',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontSize: diameter < 30 ? 7 : 8,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                 ],
@@ -150,23 +135,5 @@ class WeeklyProgressCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _dateLabel(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}';
   }
 }

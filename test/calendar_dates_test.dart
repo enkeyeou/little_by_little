@@ -21,5 +21,26 @@ void main() {
       expect(CalendarDates.leadingDaysInMonth(DateTime(2026, 8)), 6);
       expect(CalendarDates.weeksInMonth(DateTime(2026, 8)), 6);
     });
+
+    test('formats uppercase weekdays and Sunday-first week ranges', () {
+      expect(CalendarDates.weekdayAbbreviations, [
+        'SUN',
+        'MON',
+        'TUE',
+        'WED',
+        'THU',
+        'FRI',
+        'SAT',
+      ]);
+      expect(
+        CalendarDates.weekRangeLabel(DateTime(2026, 11, 1)),
+        'Nov 1 – Nov 7',
+      );
+      expect(
+        CalendarDates.weekRangeLabel(DateTime(2026, 12, 27)),
+        'Dec 27, 2026 – Jan 2, 2027',
+      );
+      expect(CalendarDates.monthYearLabel(DateTime(2026, 11)), 'November 2026');
+    });
   });
 }

@@ -135,7 +135,7 @@ class _DailyTaskCalendarState extends State<DailyTaskCalendar> {
                           return Expanded(
                             child: Center(
                               child: Text(
-                                day.toUpperCase(),
+                                day,
                                 style: const TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 10,

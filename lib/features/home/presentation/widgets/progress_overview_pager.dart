@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../app/theme/app_colors.dart';
 
@@ -19,105 +20,219 @@ class ProgressOverviewPager extends StatefulWidget {
 }
 
 class _ProgressOverviewPagerState extends State<ProgressOverviewPager> {
-  double _dragDistance = 0;
-  int _slideDirection = 1;
+  late final PageController _pageController;
+  late List<double?> _pageHeights;
+  bool _isWrapping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageHeights = List<double?>.filled(widget.pages.length, null);
+    _pageController = PageController(initialPage: widget.currentPage + 1);
+  }
 
   @override
   void didUpdateWidget(covariant ProgressOverviewPager oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentPage != oldWidget.currentPage) {
-      _slideDirection = widget.currentPage > oldWidget.currentPage ? 1 : -1;
+    if (widget.pages.length != oldWidget.pages.length) {
+      _pageHeights = List<double?>.filled(widget.pages.length, null);
+    }
+
+    if (widget.currentPage != oldWidget.currentPage &&
+        !_isWrapping &&
+        _pageController.hasClients) {
+      _pageController.animateToPage(
+        widget.currentPage + 1,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
     }
   }
 
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final delta = velocity.abs() >= 100 ? velocity : _dragDistance;
-    if (delta.abs() < 36) return;
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
-    final nextPage = widget.currentPage + (delta < 0 ? 1 : -1);
-    if (nextPage < 0 || nextPage >= widget.pages.length) return;
-    widget.onPageChanged(nextPage);
+  void _reportPageHeight(int index, Size size) {
+    if (!mounted || index >= _pageHeights.length) return;
+    final oldHeight = _pageHeights[index];
+    if (oldHeight != null && (oldHeight - size.height).abs() < 0.5) return;
+
+    setState(() {
+      _pageHeights[index] = size.height;
+    });
+  }
+
+  void _handlePageChanged(int virtualPage) {
+    final pageCount = widget.pages.length;
+    if (pageCount == 0) return;
+
+    if (virtualPage == 0 || virtualPage == pageCount + 1) {
+      final wrappedPage = virtualPage == 0 ? pageCount - 1 : 0;
+      _isWrapping = true;
+      widget.onPageChanged(wrappedPage);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(virtualPage == 0 ? pageCount : 1);
+        }
+        _isWrapping = false;
+      });
+      return;
+    }
+
+    final page = virtualPage - 1;
+    if (page != widget.currentPage) {
+      widget.onPageChanged(page);
+    }
+  }
+
+  int _pageIndexForVirtualPage(int virtualPage) {
+    if (virtualPage == 0) return widget.pages.length - 1;
+    if (virtualPage == widget.pages.length + 1) return 0;
+    return virtualPage - 1;
   }
 
   @override
   Widget build(BuildContext context) {
     const labels = ["Today's progress", 'Weekly progress', 'Monthly activity'];
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          key: const ValueKey('home-progress-overview-swipe-area'),
-          onHorizontalDragStart: (_) => _dragDistance = 0,
-          onHorizontalDragUpdate: (details) {
-            _dragDistance += details.primaryDelta ?? 0;
-          },
-          onHorizontalDragEnd: _handleHorizontalDragEnd,
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeInOutCubic,
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.hardEdge,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              layoutBuilder: (currentChild, previousChildren) => Stack(
-                alignment: Alignment.topCenter,
-                children: [...previousChildren, ?currentChild],
-              ),
-              transitionBuilder: (child, animation) {
-                final isCurrent =
-                    child.key == ValueKey<int>(widget.currentPage);
-                final offset = isCurrent
-                    ? Offset(_slideDirection.toDouble(), 0)
-                    : Offset(-_slideDirection.toDouble(), 0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final activeHeight =
+            _pageHeights[widget.currentPage] ??
+            _pageHeights.firstWhere(
+              (height) => height != null,
+              orElse: () => null,
+            ) ??
+            220;
 
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: offset,
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: FadeTransition(opacity: animation, child: child),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey<int>(widget.currentPage),
-                child: widget.pages[widget.currentPage],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(widget.pages.length, (page) {
-            final isSelected = widget.currentPage == page;
-            return Semantics(
-              button: true,
-              label: labels[page],
-              child: InkWell(
-                key: ValueKey('progress-page-indicator-$page'),
-                onTap: () => widget.onPageChanged(page),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(3),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    width: isSelected ? 18 : 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Offstage(
+              child: UnconstrainedBox(
+                constrainedAxis: Axis.horizontal,
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(widget.pages.length, (index) {
+                      return SizedBox(
+                        width: width,
+                        child: _SizeReporter(
+                          onSizeChanged: (size) =>
+                              _reportPageHeight(index, size),
+                          child: widget.pages[index],
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
-      ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              clipBehavior: Clip.none,
+              child: SizedBox(
+                height: activeHeight,
+                child: PageView.builder(
+                  key: const ValueKey('home-progress-overview-swipe-area'),
+                  controller: _pageController,
+                  itemCount: widget.pages.length + 2,
+                  onPageChanged: _handlePageChanged,
+                  clipBehavior: Clip.none,
+                  itemBuilder: (context, virtualPage) {
+                    final page =
+                        widget.pages[_pageIndexForVirtualPage(virtualPage)];
+                    return OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minWidth: width,
+                      maxWidth: width,
+                      minHeight: 0,
+                      maxHeight: double.infinity,
+                      child: SizedBox(width: width, child: page),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.pages.length, (page) {
+                final isSelected = widget.currentPage == page;
+                return Semantics(
+                  key: ValueKey('progress-page-indicator-$page'),
+                  button: true,
+                  label: labels[page],
+                  selected: isSelected,
+                  child: InkWell(
+                    onTap: () => widget.onPageChanged(page),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: isSelected ? 18 : 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.border,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        );
+      },
     );
+  }
+}
+
+class _SizeReporter extends SingleChildRenderObjectWidget {
+  final ValueChanged<Size> onSizeChanged;
+
+  const _SizeReporter({required this.onSizeChanged, required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSizeReporter(onSizeChanged);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderSizeReporter renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _RenderSizeReporter extends RenderProxyBox {
+  _RenderSizeReporter(this.onSizeChanged);
+
+  ValueChanged<Size> onSizeChanged;
+  Size? _reportedSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_reportedSize == size) return;
+    _reportedSize = size;
+    final measuredSize = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      onSizeChanged(measuredSize);
+    });
   }
 }
