@@ -17,19 +17,20 @@ void main() {
     expect(find.text('Small steps still count.'), findsOneWidget);
   });
 
-  testWidgets('Home progress card opens monthly activity', (
+  testWidgets('Home progress card exposes its three pages in order', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const LittleByLittleApp());
     await tester.pumpAndSettle();
 
-    final progressPageView = find.ancestor(
-      of: find.text("Today's Progress"),
-      matching: find.byType(PageView),
-    );
-    await tester.drag(progressPageView, const Offset(-600, 0));
-    await tester.pumpAndSettle();
+    expect(find.text("Today's Progress"), findsOneWidget);
 
+    await tester.tap(find.byKey(const ValueKey('progress-page-indicator-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Weekly Progress'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('progress-page-indicator-2')));
+    await tester.pumpAndSettle();
     expect(find.text('Monthly Activity'), findsOneWidget);
   });
 }

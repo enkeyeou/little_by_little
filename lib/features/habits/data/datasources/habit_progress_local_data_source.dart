@@ -91,4 +91,21 @@ class HabitProgressLocalDataSource {
 
     return results.map((map) => HabitProgress.fromMap(map)).toList();
   }
+
+  Future<List<HabitProgress>> getProgressForHabits(
+    List<String> habitIds,
+  ) async {
+    if (habitIds.isEmpty) return [];
+
+    final db = await _appDatabase.database;
+    final placeholders = List.filled(habitIds.length, '?').join(', ');
+    final results = await db.query(
+      'habit_logs',
+      where: 'habit_id IN ($placeholders)',
+      whereArgs: habitIds,
+      orderBy: 'date ASC',
+    );
+
+    return results.map((map) => HabitProgress.fromMap(map)).toList();
+  }
 }
