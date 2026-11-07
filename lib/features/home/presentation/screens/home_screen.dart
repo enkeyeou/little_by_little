@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
-import '../../../../core/utils/calendar_dates.dart';
 import '../../../habits/domain/models/habit.dart';
 import '../../../habits/data/datasources/habit_progress_local_data_source.dart';
 import '../../../habits/domain/models/habit_progress.dart';
+import '../../../../core/utils/calendar_dates.dart';
 import '../../../habits/presentation/screens/habit_details_screen.dart';
-import '../widgets/monthly_activity_card.dart';
-import '../widgets/progress_overview_pager.dart';
 import '../widgets/today_progress_card.dart';
-import '../widgets/weekly_progress_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
@@ -33,9 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, HabitProgress> _todayProgress = {};
   final Map<String, int> _weeklyCounts = {};
   final Map<String, int> _weeklyTargetCounts = {};
-  Map<DateTime, Map<String, HabitProgress>> _activityByDate = {};
-  DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month);
-  int _progressPage = 0;
   int _progressRequestId = 0;
   late String _habitConfigurationSignature;
 
@@ -83,14 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _applyLoadedProgress(List<HabitProgress> activityProgress) {
-    final progressByDate = <DateTime, Map<String, HabitProgress>>{};
-    for (final progress in activityProgress) {
-      progressByDate.putIfAbsent(
-        _dateOnly(progress.date),
-        () => {},
-      )[progress.habitId] = progress;
-    }
-
     setState(() {
       _todayProgress.clear();
       _weeklyCounts.clear();
@@ -129,8 +115,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
       }
-
-      _activityByDate = progressByDate;
     });
   }
 
@@ -153,14 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return goal == null ? progress.count > 0 : progress.count >= goal;
   }
 
-  bool _isDailyActivitySuccessful(Habit habit, HabitProgress? progress) {
-    if (habit.trackingType == TrackingType.counter &&
-        habit.counterGoalPeriod == CounterGoalPeriod.weekly) {
-      return progress?.isCompleted ?? false;
-    }
-    return _isSuccessfulSession(habit, progress);
-  }
-
   bool _isCompleted(String habitId) {
     return _todayProgress[habitId]?.isCompleted ?? false;
   }
@@ -175,7 +151,11 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
   }
 
-  int _getTodaySuccessfulHabits() => _getDaySummary(_today).successful;
+  int _getTodaySuccessfulHabits() {
+    return _todaysHabits.where((habit) {
+      return _isSuccessfulSession(habit, _todayProgress[habit.id]);
+    }).length;
+  }
 
   int _getTodayCount(String habitId) {
     return _todayProgress[habitId]?.count ?? 0;
@@ -204,125 +184,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return completedOccurrences >= habit.weeklyTarget;
   }
 
-  void _changeActivityMonth(int offset) {
-    final nextMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + offset,
-    );
-    final currentMonth = DateTime(_today.year, _today.month);
-    if (nextMonth.isAfter(currentMonth)) return;
-
-    setState(() {
-      _visibleMonth = nextMonth;
-    });
-  }
-
-  void _selectProgressPage(int page) {
-    if (page == _progressPage) return;
-    setState(() => _progressPage = page);
-  }
-
-  HabitProgress? _getActivityProgress(Habit habit, DateTime date) {
-    final normalizedDate = _dateOnly(date);
-    return _activityByDate[normalizedDate]?[habit.id];
-  }
-
-  List<Habit> _getApplicableHabits(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-    return widget.habits
-        .where(
-          (habit) =>
-              !normalizedDate.isBefore(_dateOnly(habit.createdAt)) &&
-              habit.isScheduledFor(normalizedDate),
-        )
-        .toList();
-  }
-
-  ({int applicable, int successful}) _getDaySummary(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-    if (normalizedDate.isAfter(_today)) {
-      return (applicable: 0, successful: 0);
-    }
-
-    final habits = _getApplicableHabits(normalizedDate);
-    var applicable = 0;
-    var successful = 0;
-    for (final habit in habits) {
-      final progress = _getActivityProgress(habit, normalizedDate);
-      final isWeeklyTarget =
-          habit.scheduleType == HabitScheduleType.weeklyTarget;
-      final isWeeklyCounter =
-          habit.trackingType == TrackingType.counter &&
-          habit.counterGoalPeriod == CounterGoalPeriod.weekly;
-      if (isWeeklyTarget) {
-        if (!_isSuccessfulSession(habit, progress)) continue;
-      } else if (isWeeklyCounter && progress?.isCompleted != true) {
-        continue;
-      }
-
-      applicable++;
-      if (isWeeklyTarget || _isDailyActivitySuccessful(habit, progress)) {
-        successful++;
-      }
-    }
-    return (applicable: applicable, successful: successful);
-  }
-
-  int _getHeatLevel(DateTime date) {
-    final summary = _getDaySummary(date);
-    if (summary.applicable == 0) return -1;
-    if (summary.successful == 0) return 0;
-
-    final percentage = summary.successful / summary.applicable * 100;
-    if (percentage < 25) return 1;
-    if (percentage < 50) return 2;
-    if (percentage < 75) return 3;
-    if (percentage < 100) return 4;
-    return 5;
-  }
-
-  Widget _buildProgressOverviewCard() {
-    return ProgressOverviewPager(
-      currentPage: _progressPage,
-      onPageChanged: _selectProgressPage,
-      pages: [
-        _buildTodayProgressPage(),
-        _buildWeeklyProgressPage(),
-        _buildMonthlyActivityPage(),
-      ],
-    );
-  }
-
-  Widget _buildTodayProgressPage() {
+  Widget _buildTodayProgressCard() {
     return TodayProgressCard(
       completedHabits: _getTodaySuccessfulHabits(),
-      scheduledHabits: _getDaySummary(_today).applicable,
+      scheduledHabits: _todaysHabits.length,
     );
-  }
-
-  Widget _buildWeeklyProgressPage() {
-    return WeeklyProgressCard(
-      weekStart: _getWeekStart(_today),
-      today: _today,
-      getDaySummary: _getDaySummary,
-    );
-  }
-
-  Widget _buildMonthlyActivityPage() {
-    return MonthlyActivityCard(
-      month: _visibleMonth,
-      today: _today,
-      getActivityLevel: _getHeatLevel,
-      getActivityDescription: _getActivityDescription,
-      onMonthChanged: _changeActivityMonth,
-    );
-  }
-
-  String _getActivityDescription(DateTime date) {
-    if (date.isAfter(_today)) return 'Upcoming';
-    final summary = _getDaySummary(date);
-    if (summary.applicable == 0) return 'No scheduled activity';
-    return '${summary.successful} of ${summary.applicable} completed';
   }
 
   Future<void> _toggleCompletion(Habit habit) async {
@@ -405,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 28),
 
-            _buildProgressOverviewCard(),
+            _buildTodayProgressCard(),
             const SizedBox(height: 28),
 
             // Habits Section Header

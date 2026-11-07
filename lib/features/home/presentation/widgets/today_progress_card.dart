@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
-import 'home_progress_card.dart';
 
 class TodayProgressCard extends StatelessWidget {
   final int completedHabits;
@@ -20,7 +19,14 @@ class TodayProgressCard extends StatelessWidget {
         ? completedHabits / scheduledHabits
         : 0.0;
 
-    return HomeProgressCard(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
