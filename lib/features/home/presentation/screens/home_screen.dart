@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/utils/calendar_dates.dart';
 import '../../../habits/domain/models/habit.dart';
 import '../../../habits/data/datasources/habit_progress_local_data_source.dart';
 import '../../../habits/domain/models/habit_progress.dart';
 import '../../../habits/presentation/screens/habit_details_screen.dart';
+import '../widgets/monthly_activity_card.dart';
+import '../widgets/progress_overview_pager.dart';
+import '../widgets/today_progress_card.dart';
+import '../widgets/weekly_progress_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
@@ -25,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final HabitProgressLocalDataSource _progressDataSource =
       HabitProgressLocalDataSource();
 
-  final PageController _progressPageController = PageController();
   final Map<String, HabitProgress> _todayProgress = {};
   final Map<String, int> _weeklyCounts = {};
   final Map<String, int> _weeklyTargetCounts = {};
@@ -51,12 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshProgressData();
   }
 
-  @override
-  void dispose() {
-    _progressPageController.dispose();
-    super.dispose();
-  }
-
   static DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
@@ -66,10 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.habits.map((habit) => habit.toMap().toString()).join('|');
 
   DateTime _getWeekStart(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-    return normalizedDate.subtract(
-      Duration(days: normalizedDate.weekday - DateTime.monday),
-    );
+    return CalendarDates.startOfWeek(date);
   }
 
   Future<void> _refreshProgressData() async {
@@ -159,6 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool _isDailyActivitySuccessful(Habit habit, HabitProgress? progress) {
+    if (habit.trackingType == TrackingType.counter &&
+        habit.counterGoalPeriod == CounterGoalPeriod.weekly) {
+      return progress?.isCompleted ?? false;
+    }
     return _isSuccessfulSession(habit, progress);
   }
 
@@ -219,11 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectProgressPage(int page) {
-    _progressPageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
+    if (page == _progressPage) return;
+    setState(() => _progressPage = page);
   }
 
   HabitProgress? _getActivityProgress(Habit habit, DateTime date) {
@@ -253,14 +249,19 @@ class _HomeScreenState extends State<HomeScreen> {
     var successful = 0;
     for (final habit in habits) {
       final progress = _getActivityProgress(habit, normalizedDate);
-      if (habit.scheduleType == HabitScheduleType.weeklyTarget ||
-          (habit.trackingType == TrackingType.counter &&
-              habit.counterGoalPeriod == CounterGoalPeriod.weekly)) {
+      final isWeeklyTarget =
+          habit.scheduleType == HabitScheduleType.weeklyTarget;
+      final isWeeklyCounter =
+          habit.trackingType == TrackingType.counter &&
+          habit.counterGoalPeriod == CounterGoalPeriod.weekly;
+      if (isWeeklyTarget) {
         if (!_isSuccessfulSession(habit, progress)) continue;
+      } else if (isWeeklyCounter && progress?.isCompleted != true) {
+        continue;
       }
 
       applicable++;
-      if (_isDailyActivitySuccessful(habit, progress)) {
+      if (isWeeklyTarget || _isDailyActivitySuccessful(habit, progress)) {
         successful++;
       }
     }
@@ -270,7 +271,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _getHeatLevel(DateTime date) {
     final summary = _getDaySummary(date);
     if (summary.applicable == 0) return -1;
-    if (_dateOnly(date) == _today && summary.successful == 0) return -1;
     if (summary.successful == 0) return 0;
 
     final percentage = summary.successful / summary.applicable * 100;
@@ -281,50 +281,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return 5;
   }
 
-  Color _getHeatColor(int level) {
-    switch (level) {
-      case 0:
-        return AppColors.danger.withValues(alpha: 0.22);
-      case 1:
-        return AppColors.primary.withValues(alpha: 0.16);
-      case 2:
-        return AppColors.primary.withValues(alpha: 0.3);
-      case 3:
-        return AppColors.primary.withValues(alpha: 0.48);
-      case 4:
-        return AppColors.primary.withValues(alpha: 0.7);
-      case 5:
-        return AppColors.primary;
-      default:
-        return AppColors.surfaceElevated;
-    }
-  }
-
-  String _monthLabel(DateTime month) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[month.month - 1]} ${month.year}';
-  }
-
   int _getCurrentActivityStreak() {
     if (widget.habits.isEmpty) return 0;
 
     var date = _today;
     final todaySummary = _getDaySummary(date);
-    if (todaySummary.applicable > 0 &&
-        todaySummary.successful < todaySummary.applicable) {
+    if (todaySummary.applicable > 0 && todaySummary.successful == 0) {
       date = date.subtract(const Duration(days: 1));
     }
 
@@ -338,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
         date = date.subtract(const Duration(days: 1));
         continue;
       }
-      if (summary.successful < summary.applicable) break;
+      if (summary.successful == 0) break;
       streak++;
       date = date.subtract(const Duration(days: 1));
     }
@@ -353,411 +315,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProgressOverviewCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: switch (_progressPage) {
-              0 => 130.0,
-              1 => 160.0,
-              _ => 255.0,
-            },
-            child: PageView(
-              controller: _progressPageController,
-              onPageChanged: (page) => setState(() => _progressPage = page),
-              children: [
-                _buildTodayProgressPage(),
-                _buildWeeklyProgressPage(),
-                _buildMonthlyActivityPage(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildProgressPageIndicator(0),
-              const SizedBox(width: 8),
-              _buildProgressPageIndicator(1),
-              const SizedBox(width: 8),
-              _buildProgressPageIndicator(2),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressPageIndicator(int page) {
-    final isSelected = _progressPage == page;
-    const labels = ["Today's progress", 'Weekly progress', 'Monthly activity'];
-    return Semantics(
-      button: true,
-      label: labels[page],
-      child: InkWell(
-        key: ValueKey('progress-page-indicator-$page'),
-        onTap: () => _selectProgressPage(page),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: isSelected ? 18 : 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : AppColors.border,
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-      ),
+    return ProgressOverviewPager(
+      currentPage: _progressPage,
+      onPageChanged: _selectProgressPage,
+      pages: [
+        _buildTodayProgressPage(),
+        _buildWeeklyProgressPage(),
+        _buildMonthlyActivityPage(),
+      ],
     );
   }
 
   Widget _buildTodayProgressPage() {
-    final successful = _getTodaySuccessfulHabits();
-    final dailyOpportunities = _getDaySummary(_today).applicable;
-    final hasScheduledHabits = dailyOpportunities > 0;
-    final progress = hasScheduledHabits ? successful / dailyOpportunities : 0.0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                "Today's Progress",
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Text(
-              hasScheduledHabits ? '${(progress * 100).round()}%' : '—',
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (hasScheduledHabits) ...[
-          Text(
-            '$successful / $dailyOpportunities Habits Completed',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 7,
-            borderRadius: BorderRadius.circular(8),
-            backgroundColor: AppColors.surfaceElevated,
-            color: AppColors.primary,
-          ),
-        ] else ...[
-          const SizedBox(height: 28),
-          const Text(
-            'No habits scheduled for today',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ],
+    return TodayProgressCard(
+      completedHabits: _getTodaySuccessfulHabits(),
+      scheduledHabits: _getDaySummary(_today).applicable,
     );
   }
 
   Widget _buildWeeklyProgressPage() {
-    const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final weekStart = _getWeekStart(_today);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Weekly Progress',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 17),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final diameter = (constraints.maxWidth / 8).clamp(30.0, 40.0);
-            return Row(
-              children: List.generate(7, (index) {
-                final date = weekStart.add(Duration(days: index));
-                final summary = _getDaySummary(date);
-                final isFuture = date.isAfter(_today);
-                final hasOpportunities = summary.applicable > 0;
-                final value = !isFuture && hasOpportunities
-                    ? summary.successful / summary.applicable
-                    : 0.0;
-                final isMissed =
-                    !isFuture &&
-                    date.isBefore(_today) &&
-                    hasOpportunities &&
-                    summary.successful == 0;
-                final arcColor = isMissed
-                    ? AppColors.danger
-                    : AppColors.primary;
-                final status = isFuture
-                    ? 'Upcoming'
-                    : !hasOpportunities
-                    ? 'No scheduled habits'
-                    : '${summary.successful} of ${summary.applicable} completed';
-
-                return Expanded(
-                  child: Semantics(
-                    label: '${weekdays[index]}: $status',
-                    child: Tooltip(
-                      message:
-                          '${weekdays[index]} ${date.month}/${date.day}: $status',
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: diameter,
-                            height: diameter,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                if (!hasOpportunities || isFuture)
-                                  Container(
-                                    width: diameter,
-                                    height: diameter,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.surfaceElevated,
-                                      border: Border.all(
-                                        color: AppColors.border,
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  TweenAnimationBuilder<double>(
-                                    tween: Tween(begin: 0, end: value),
-                                    duration: const Duration(milliseconds: 350),
-                                    builder: (context, animatedValue, _) =>
-                                        CircularProgressIndicator(
-                                          value: animatedValue,
-                                          strokeWidth: 3.5,
-                                          strokeCap: StrokeCap.round,
-                                          backgroundColor:
-                                              AppColors.surfaceElevated,
-                                          color: arcColor,
-                                        ),
-                                  ),
-                                if (hasOpportunities && !isFuture)
-                                  Text(
-                                    '${(value * 100).round()}%',
-                                    style: TextStyle(
-                                      color: arcColor,
-                                      fontSize: diameter < 35 ? 8 : 9,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            weekdays[index],
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            );
-          },
-        ),
-      ],
+    return WeeklyProgressCard(
+      weekStart: _getWeekStart(_today),
+      today: _today,
+      getDaySummary: _getDaySummary,
     );
   }
 
   Widget _buildMonthlyActivityPage() {
-    final monthStart = DateTime(_visibleMonth.year, _visibleMonth.month);
-    final daysInMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + 1,
-      0,
-    ).day;
-    final leadingDays = monthStart.weekday - DateTime.monday;
-    final weekCount = (leadingDays + daysInMonth + 6) ~/ 7;
-    final currentMonth = DateTime(_today.year, _today.month);
-    final isCurrentMonth =
-        _visibleMonth.year == currentMonth.year &&
-        _visibleMonth.month == currentMonth.month;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Monthly Activity',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Previous month',
-              onPressed: () => _changeActivityMonth(-1),
-              icon: const Icon(Icons.chevron_left),
-              color: AppColors.textSecondary,
-              visualDensity: VisualDensity.compact,
-            ),
-            Text(
-              _monthLabel(_visibleMonth),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Next month',
-              onPressed: isCurrentMonth ? null : () => _changeActivityMonth(1),
-              icon: const Icon(Icons.chevron_right),
-              color: isCurrentMonth
-                  ? AppColors.textMuted
-                  : AppColors.textSecondary,
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-        Text(
-          _getActivityStreakMessage(),
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-              .map(
-                (label) => Expanded(
-                  child: Center(
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 4),
-        ...List.generate(weekCount, (weekIndex) {
-          return SizedBox(
-            height: 20,
-            child: Row(
-              children: List.generate(7, (weekdayIndex) {
-                final day = weekIndex * 7 + weekdayIndex - leadingDays + 1;
-                if (day < 1 || day > daysInMonth) {
-                  return const Expanded(child: SizedBox());
-                }
-                return Expanded(
-                  child: Center(
-                    child: _buildActivityDayCell(
-                      DateTime(_visibleMonth.year, _visibleMonth.month, day),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          );
-        }),
-        const SizedBox(height: 5),
-        _buildHeatmapLegend(),
-      ],
+    return MonthlyActivityCard(
+      month: _visibleMonth,
+      today: _today,
+      streakMessage: _getActivityStreakMessage(),
+      getActivityLevel: _getHeatLevel,
+      getActivityDescription: _getActivityDescription,
+      onMonthChanged: _changeActivityMonth,
     );
   }
 
-  Widget _buildActivityDayCell(DateTime date) {
-    final level = _getHeatLevel(date);
+  String _getActivityDescription(DateTime date) {
+    if (date.isAfter(_today)) return 'Upcoming';
     final summary = _getDaySummary(date);
-    final dateStatus = date.isAfter(_today)
-        ? 'Upcoming'
-        : summary.applicable == 0
-        ? 'No scheduled activity'
-        : '${summary.successful} of ${summary.applicable} successful';
-    return Semantics(
-      label: '${date.month}/${date.day}: $dateStatus',
-      child: Tooltip(
-        message: '${date.day}: $dateStatus',
-        child: Container(
-          width: 15,
-          height: 15,
-          decoration: BoxDecoration(
-            color: _getHeatColor(level),
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: AppColors.border, width: 0.35),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeatmapLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        const Text(
-          'Less',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 9),
-        ),
-        const SizedBox(width: 5),
-        for (var level = 0; level <= 5; level++) ...[
-          Container(
-            width: 9,
-            height: 9,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: _getHeatColor(level),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-        const SizedBox(width: 5),
-        const Text(
-          'More',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 9),
-        ),
-      ],
-    );
+    if (summary.applicable == 0) return 'No scheduled activity';
+    return '${summary.successful} of ${summary.applicable} completed';
   }
 
   Future<void> _toggleCompletion(Habit habit) async {

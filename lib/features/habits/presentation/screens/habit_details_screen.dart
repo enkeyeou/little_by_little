@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/utils/calendar_dates.dart';
 import '../../domain/models/habit.dart';
 import 'add_habit_screen.dart';
 import '../../data/datasources/habit_progress_local_data_source.dart';
 import '../../domain/models/habit_progress.dart';
+import '../widgets/habit_calendar.dart';
+import '../widgets/habit_day_status.dart';
+import '../widgets/habit_week_progress.dart';
 
 class HabitDetailsScreen extends StatefulWidget {
   final Habit habit;
@@ -79,9 +83,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
   }
 
   DateTime _getWeekStart(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-
-    return normalizedDate.subtract(Duration(days: normalizedDate.weekday - 1));
+    return CalendarDates.startOfWeek(date);
   }
 
   DateTime _dateOnly(DateTime date) =>
@@ -109,7 +111,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     }
 
     if (widget.habit.counterGoalPeriod == CounterGoalPeriod.weekly) {
-      return progress.count > 0;
+      return progress.isCompleted;
     }
 
     final goal = widget.habit.counterGoal;
@@ -135,7 +137,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
   DateTime _getFirstFullWeekStart() {
     final createdWeek = _getWeekStart(widget.habit.createdAt);
 
-    if (widget.habit.createdAt.weekday == DateTime.monday) {
+    if (widget.habit.createdAt.weekday == DateTime.sunday) {
       return createdWeek;
     }
 
@@ -165,6 +167,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
       return !date.isBefore(weekStart) &&
           !date.isAfter(effectiveWeekEnd) &&
           !date.isBefore(createdDate) &&
+          widget.habit.isScheduledFor(date) &&
           !weekStart.isBefore(_getFirstFullWeekStart());
     }).toList();
 
@@ -219,7 +222,8 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
       int streak = 0;
       DateTime week = currentWeek;
 
-      if (today.weekday != DateTime.sunday && !_isWeekSuccessful(currentWeek)) {
+      if (today.weekday != DateTime.saturday &&
+          !_isWeekSuccessful(currentWeek)) {
         week = week.subtract(const Duration(days: 7));
       }
 
@@ -295,7 +299,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
 
         // Ignore an unfinished current week.
         if (isCurrentWeek &&
-            today.weekday != DateTime.sunday &&
+            today.weekday != DateTime.saturday &&
             !_isWeekSuccessful(week)) {
           break;
         }
@@ -395,24 +399,6 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
         : 'Counter-based';
   }
 
-  String _monthLabel(DateTime month) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[month.month - 1]} ${month.year}';
-  }
-
   String _dateLabel(DateTime date) {
     const months = [
       'January',
@@ -431,7 +417,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  String _getCalendarStatus(DateTime date, HabitProgress? progress) {
+  HabitDayStatus _getCalendarStatus(DateTime date, HabitProgress? progress) {
     final normalizedDate = _dateOnly(date);
     final isScheduled = widget.habit.isScheduledFor(normalizedDate);
     final isWeeklyTarget =
@@ -440,41 +426,36 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
         widget.habit.trackingType == TrackingType.counter &&
         widget.habit.counterGoalPeriod == CounterGoalPeriod.weekly;
 
-    if (normalizedDate.isBefore(_createdDate)) return 'Not scheduled';
+    if (normalizedDate.isBefore(_createdDate)) {
+      return HabitDayStatus.notScheduled;
+    }
     if (normalizedDate.isAfter(_today)) {
-      return isScheduled ? 'Upcoming' : 'Not scheduled';
+      return isScheduled
+          ? HabitDayStatus.upcoming
+          : HabitDayStatus.notScheduled;
     }
 
     if (!isScheduled && !isWeeklyTarget) {
-      return 'Not scheduled';
+      return HabitDayStatus.notScheduled;
     }
 
     if (isWeeklyTarget) {
-      return _isWeeklyTargetSession(progress) ? 'Completed' : 'Not scheduled';
+      return _isWeeklyTargetSession(progress)
+          ? HabitDayStatus.completed
+          : HabitDayStatus.notScheduled;
     }
 
     if (isWeeklyCounter) {
-      return 'Not scheduled';
+      return progress?.isCompleted == true
+          ? HabitDayStatus.completed
+          : HabitDayStatus.notScheduled;
     }
 
     if (progress != null && _isProgressSuccessful(progress)) {
-      return 'Completed';
+      return HabitDayStatus.completed;
     }
-    if (normalizedDate == _today) return '';
-    return 'Missed';
-  }
-
-  Color _getCalendarStatusColor(String status) {
-    switch (status) {
-      case 'Completed':
-        return AppColors.primary;
-      case 'Missed':
-        return AppColors.danger;
-      case 'Upcoming':
-        return AppColors.textMuted;
-      default:
-        return AppColors.border;
-    }
+    if (normalizedDate == _today) return HabitDayStatus.today;
+    return HabitDayStatus.missed;
   }
 
   void _changeVisibleMonth(int offset) {
@@ -488,7 +469,6 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
   }
 
   Widget _buildWeeklyProgressCard() {
-    final weekStart = _getWeekStart(_today);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -499,6 +479,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
             'This Week',
@@ -509,309 +490,33 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: List.generate(7, (index) {
-              final date = weekStart.add(Duration(days: index));
-              return Expanded(child: _buildWeekDayIndicator(date));
-            }),
+          HabitWeekProgress(
+            weekStart: _getWeekStart(_today),
+            today: _today,
+            statusForDate: _statusForDate,
+            countForDate: (date) => _getProgressForDate(date)?.count,
+            counterUnit: widget.habit.counterUnit,
+            isCounter: widget.habit.trackingType == TrackingType.counter,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeekDayIndicator(DateTime date) {
-    const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final progress = _getProgressForDate(date);
-    final count = progress?.count ?? 0;
-    final status = _getCalendarStatus(date, progress);
-    final color = _getCalendarStatusColor(status);
-    final isToday = date == _today;
-    final label =
-        '${weekdayLabels[date.weekday - 1]}, ${date.month}/${date.day}: '
-        '${status.isEmpty ? 'Today' : status}'
-        '${widget.habit.trackingType == TrackingType.counter && progress != null ? ', $count ${widget.habit.counterUnit}' : ''}';
-    return Semantics(
-      label: label,
-      child: Tooltip(
-        message: label,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 1),
-          child: Column(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: color.withValues(
-                    alpha: color == AppColors.border ? 0.3 : 0.18,
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: color.withValues(
-                      alpha: status.isEmpty || status == 'Upcoming'
-                          ? 0.8
-                          : 0.45,
-                    ),
-                  ),
-                ),
-                child: Center(
-                  child: status == 'Completed'
-                      ? Icon(Icons.check, size: 15, color: color)
-                      : status == 'Missed'
-                      ? Icon(Icons.close, size: 15, color: color)
-                      : status == 'Upcoming'
-                      ? Icon(Icons.circle_outlined, size: 13, color: color)
-                      : widget.habit.trackingType == TrackingType.counter &&
-                            progress != null
-                      ? FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            '$count',
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-              Text(
-                weekdayLabels[date.weekday - 1],
-                maxLines: 1,
-                style: TextStyle(
-                  color: isToday ? AppColors.textPrimary : AppColors.textMuted,
-                  fontSize: 10,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  HabitDayStatus _statusForDate(DateTime date) =>
+      _getCalendarStatus(date, _getProgressForDate(date));
 
   Widget _buildCompletionCalendar() {
-    final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month);
-    final daysInMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + 1,
-      0,
-    ).day;
-    final leadingDays = firstOfMonth.weekday - 1;
-    final cellCount = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Completion history',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Previous month',
-                onPressed: () => _changeVisibleMonth(-1),
-                icon: const Icon(Icons.chevron_left),
-                color: AppColors.textSecondary,
-                visualDensity: VisualDensity.compact,
-              ),
-              Text(
-                _monthLabel(_visibleMonth),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Next month',
-                onPressed: () => _changeVisibleMonth(1),
-                icon: const Icon(Icons.chevron_right),
-                color: AppColors.textSecondary,
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-                .map(
-                  (day) => Expanded(
-                    child: Center(
-                      child: Text(
-                        day,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: cellCount,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-              childAspectRatio: 0.9,
-            ),
-            itemBuilder: (context, index) {
-              final day = index - leadingDays + 1;
-              if (day < 1 || day > daysInMonth) return const SizedBox();
-              return _buildCalendarDayCell(
-                DateTime(_visibleMonth.year, _visibleMonth.month, day),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildCalendarLegend(),
-          const SizedBox(height: 12),
-          _buildSelectedDateDetails(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarDayCell(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-    final progress = _getProgressForDate(normalizedDate);
-    final status = _getCalendarStatus(normalizedDate, progress);
-    final statusColor = _getCalendarStatusColor(status);
-    final isSelected = normalizedDate == _selectedDate;
-    final countLabel =
-        widget.habit.trackingType == TrackingType.counter && progress != null
-        ? '${progress.count}'
-        : null;
-    final visibleStatus = status.isEmpty ? 'Today' : status;
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label:
-          '${_dateLabel(normalizedDate)}: $visibleStatus${countLabel == null ? '' : ', $countLabel ${widget.habit.counterUnit}'}',
-      child: Tooltip(
-        message:
-            '${_dateLabel(normalizedDate)}: $visibleStatus${countLabel == null ? '' : ', $countLabel ${widget.habit.counterUnit}'}',
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => setState(() => _selectedDate = normalizedDate),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.surfaceElevated
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${normalizedDate.day}',
-                  style: TextStyle(
-                    color: status == 'Not scheduled'
-                        ? AppColors.textMuted
-                        : AppColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                if (countLabel != null)
-                  Text(
-                    countLabel,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 8,
-                      height: 1,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  )
-                else if (status.isEmpty)
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.textMuted),
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else if (status != 'Not scheduled')
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else
-                  const SizedBox(height: 5),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendarLegend() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 6,
-      children: [
-        _buildLegendItem('Completed', AppColors.primary),
-        _buildLegendItem('Missed', AppColors.danger),
-        _buildLegendItem('Upcoming', AppColors.textMuted),
-        _buildLegendItem('Not scheduled', AppColors.border),
-      ],
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
-        ),
-      ],
+    return HabitCalendar(
+      visibleMonth: _visibleMonth,
+      selectedDate: _selectedDate,
+      statusForDate: _statusForDate,
+      countForDate: (date) => _getProgressForDate(date)?.count,
+      counterUnit: widget.habit.counterUnit,
+      isCounter: widget.habit.trackingType == TrackingType.counter,
+      selectedDateDetails: _buildSelectedDateDetails(),
+      onDateSelected: (date) => setState(() => _selectedDate = date),
+      onMonthChanged: _changeVisibleMonth,
     );
   }
 
@@ -854,11 +559,15 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
                   ),
                 ),
               ),
-              if (status.isNotEmpty)
+              if (status != HabitDayStatus.today)
                 Text(
-                  status,
+                  status.label,
                   style: TextStyle(
-                    color: _getCalendarStatusColor(status),
+                    color: status == HabitDayStatus.completed
+                        ? AppColors.primary
+                        : status == HabitDayStatus.missed
+                        ? AppColors.danger
+                        : AppColors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),

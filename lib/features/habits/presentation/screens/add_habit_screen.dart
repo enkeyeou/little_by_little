@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/models/habit.dart';
+import '../widgets/habit_schedule_fields.dart';
 
 class AddHabitScreen extends StatefulWidget {
   final Habit? habit;
@@ -380,183 +381,34 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             ],
             const SizedBox(height: 28),
 
-            // Habit Schedule
-            const Text(
-              'When do you want to do this habit?',
-              style: TextStyle(fontWeight: FontWeight.w600),
+            HabitScheduleFields(
+              scheduleType: _scheduleType,
+              selectedWeekdays: _selectedWeekdays,
+              everyNDays: _everyNDays,
+              weeklyTarget: _weeklyTarget,
+              showScheduleError: _showScheduleError,
+              onScheduleTypeChanged: (schedule) {
+                setState(() => _scheduleType = schedule);
+              },
+              onWeekdayToggled: (weekday) {
+                setState(() {
+                  if (_selectedWeekdays.contains(weekday)) {
+                    _selectedWeekdays.remove(weekday);
+                  } else {
+                    _selectedWeekdays.add(weekday);
+                  }
+                  if (_selectedWeekdays.isNotEmpty) {
+                    _showScheduleError = false;
+                  }
+                });
+              },
+              onEveryNDaysChanged: (value) {
+                setState(() => _everyNDays = value);
+              },
+              onWeeklyTargetChanged: (value) {
+                setState(() => _weeklyTarget = value);
+              },
             ),
-            const SizedBox(height: 12),
-
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children:
-                  [
-                    'Every day',
-                    'Selected days',
-                    'Every N days',
-                    'Weekly target',
-                  ].map((schedule) {
-                    return ChoiceChip(
-                      label: Text(schedule),
-                      selected: _scheduleType == schedule,
-                      onSelected: (_) {
-                        setState(() {
-                          _scheduleType = schedule;
-                        });
-                      },
-                    );
-                  }).toList(),
-            ),
-            if (_scheduleType == 'Selected days') ...[
-              const SizedBox(height: 20),
-
-              const Text(
-                'Choose your days',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(7, (index) {
-                  final dayNumber = index + 1;
-                  const dayLabels = [
-                    'Mon',
-                    'Tue',
-                    'Wed',
-                    'Thu',
-                    'Fri',
-                    'Sat',
-                    'Sun',
-                  ];
-
-                  final isSelected = _selectedWeekdays.contains(dayNumber);
-
-                  return FilterChip(
-                    label: Text(dayLabels[index]),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedWeekdays.add(dayNumber);
-                        } else {
-                          _selectedWeekdays.remove(dayNumber);
-                        }
-
-                        if (_selectedWeekdays.isNotEmpty) {
-                          _showScheduleError = false;
-                        }
-                      });
-                    },
-                  );
-                }),
-              ),
-              if (_showScheduleError && _selectedWeekdays.isEmpty) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  'Please select at least one day.',
-                  style: TextStyle(color: AppColors.danger, fontSize: 12),
-                ),
-              ],
-            ],
-            if (_scheduleType == 'Every N days') ...[
-              const SizedBox(height: 20),
-
-              const Text(
-                'Repeat every',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: _everyNDays > 2
-                        ? () {
-                            setState(() {
-                              _everyNDays--;
-                            });
-                          }
-                        : null,
-                    icon: const Icon(Icons.remove),
-                  ),
-
-                  Text(
-                    '$_everyNDays days',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  IconButton(
-                    onPressed: _everyNDays < 30
-                        ? () {
-                            setState(() {
-                              _everyNDays++;
-                            });
-                          }
-                        : null,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              ),
-
-              Text(
-                'Choose a repeat interval from 2 to 30 days.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-              ),
-            ],
-            if (_scheduleType == 'Weekly target') ...[
-              const SizedBox(height: 20),
-
-              const Text(
-                'How many times per week?',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: _weeklyTarget > 1
-                        ? () {
-                            setState(() {
-                              _weeklyTarget--;
-                            });
-                          }
-                        : null,
-                    icon: const Icon(Icons.remove),
-                  ),
-
-                  Text(
-                    '$_weeklyTarget times per week',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  IconButton(
-                    onPressed: _weeklyTarget < 7
-                        ? () {
-                            setState(() {
-                              _weeklyTarget++;
-                            });
-                          }
-                        : null,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              ),
-
-              Text(
-                'Complete this habit at least this many times each week.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-              ),
-            ],
             const SizedBox(height: 32),
 
             SizedBox(

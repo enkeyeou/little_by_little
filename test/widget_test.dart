@@ -17,7 +17,7 @@ void main() {
     expect(find.text('Small steps still count.'), findsOneWidget);
   });
 
-  testWidgets('Home progress card exposes its three pages in order', (
+  testWidgets('Home progress cards swipe through three pages in order', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const LittleByLittleApp());
@@ -25,12 +25,22 @@ void main() {
 
     expect(find.text("Today's Progress"), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('progress-page-indicator-1')));
+    final swipeArea = find.byKey(
+      const ValueKey('home-progress-overview-swipe-area'),
+    );
+    await tester.drag(swipeArea, const Offset(-300, 0));
     await tester.pumpAndSettle();
     expect(find.text('Weekly Progress'), findsOneWidget);
+    expect(find.text('Sun'), findsOneWidget);
+    expect(find.text('Sat'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('progress-page-indicator-2')));
+    await tester.drag(swipeArea, const Offset(-300, 0));
     await tester.pumpAndSettle();
     expect(find.text('Monthly Activity'), findsOneWidget);
+
+    await tester.drag(swipeArea, const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Weekly Progress'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
