@@ -60,30 +60,40 @@ class HabitCalendar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Completion History',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Completion history',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
               IconButton(
                 tooltip: 'Previous month',
                 onPressed: () => onMonthChanged(-1),
                 icon: const Icon(Icons.chevron_left),
                 color: AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
-              Text(
-                _monthLabel(month),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Center(
+                  child: Text(
+                    CalendarDates.monthYearLabel(month),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
               IconButton(
@@ -92,6 +102,11 @@ class HabitCalendar extends StatelessWidget {
                 icon: const Icon(Icons.chevron_right),
                 color: AppColors.textSecondary,
                 visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
             ],
           ),
@@ -257,9 +272,6 @@ class HabitCalendar extends StatelessWidget {
     HabitDayStatus.upcoming => AppColors.textMuted,
     HabitDayStatus.notScheduled || HabitDayStatus.today => AppColors.border,
   };
-
-  String _monthLabel(DateTime date) =>
-      '${_months[date.month - 1]} ${date.year}';
 
   String _dateLabel(DateTime date) =>
       '${_months[date.month - 1]} ${date.day}, ${date.year}';

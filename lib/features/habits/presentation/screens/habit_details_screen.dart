@@ -489,7 +489,15 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 2),
+          Text(
+            CalendarDates.weekRangeLabel(_getWeekStart(_today)),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 8),
           HabitWeekProgress(
             weekStart: _getWeekStart(_today),
             today: _today,
@@ -761,9 +769,9 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
               ),
 
             if (!_isLoadingProgress) ...[
-              const SizedBox(height: 28),
+              const SizedBox(height: 12),
               _buildWeeklyProgressCard(),
-              const SizedBox(height: 9),
+              const SizedBox(height: 12),
               _buildCompletionCalendar(),
             ],
 

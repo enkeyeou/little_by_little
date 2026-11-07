@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/utils/calendar_dates.dart';
 
 class HabitScheduleFields extends StatelessWidget {
   final String scheduleType;
@@ -33,15 +34,6 @@ class HabitScheduleFields extends StatelessWidget {
     'Weekly target',
   ];
 
-  static const _weekdayLabels = [
-    'Sun',
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat',
-  ];
   static const _weekdayValues = [
     DateTime.sunday,
     DateTime.monday,
@@ -83,14 +75,14 @@ class HabitScheduleFields extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: List.generate(_weekdayLabels.length, (index) {
-              final weekday = _weekdayValues[index];
-              return FilterChip(
-                label: Text(_weekdayLabels[index]),
-                selected: selectedWeekdays.contains(weekday),
-                onSelected: (_) => onWeekdayToggled(weekday),
-              );
-            }),
+            children: List.generate(
+              CalendarDates.weekdayAbbreviations.length,
+              (index) => FilterChip(
+                label: Text(CalendarDates.weekdayAbbreviations[index]),
+                selected: selectedWeekdays.contains(_weekdayValues[index]),
+                onSelected: (_) => onWeekdayToggled(_weekdayValues[index]),
+              ),
+            ),
           ),
           if (showScheduleError && selectedWeekdays.isEmpty) ...[
             const SizedBox(height: 8),
