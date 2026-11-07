@@ -102,6 +102,8 @@ class _ProgressOverviewPagerState extends State<ProgressOverviewPager> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        const pageSpacing = 8.0;
+        final pageWidth = width - (pageSpacing * 2);
         final activeHeight =
             _pageHeights[widget.currentPage] ??
             _pageHeights.firstWhere(
@@ -124,10 +126,18 @@ class _ProgressOverviewPagerState extends State<ProgressOverviewPager> {
                     children: List.generate(widget.pages.length, (index) {
                       return SizedBox(
                         width: width,
-                        child: _SizeReporter(
-                          onSizeChanged: (size) =>
-                              _reportPageHeight(index, size),
-                          child: widget.pages[index],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: pageSpacing,
+                          ),
+                          child: SizedBox(
+                            width: pageWidth,
+                            child: _SizeReporter(
+                              onSizeChanged: (size) =>
+                                  _reportPageHeight(index, size),
+                              child: widget.pages[index],
+                            ),
+                          ),
                         ),
                       );
                     }),
@@ -157,7 +167,12 @@ class _ProgressOverviewPagerState extends State<ProgressOverviewPager> {
                       maxWidth: width,
                       minHeight: 0,
                       maxHeight: double.infinity,
-                      child: SizedBox(width: width, child: page),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: pageSpacing,
+                        ),
+                        child: SizedBox(width: pageWidth, child: page),
+                      ),
                     );
                   },
                 ),
