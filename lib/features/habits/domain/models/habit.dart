@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'habit_icon.dart';
 
 enum TrackingType { completion, counter }
 
@@ -11,7 +12,8 @@ class Habit {
   final String id;
   final String name;
   final String description;
-  final String emoji;
+  final String emoji; // Legacy value, retained for compatibility.
+  final String iconKey;
   final Color color;
 
   final TrackingType trackingType;
@@ -32,6 +34,7 @@ class Habit {
     required this.name,
     this.description = '',
     required this.emoji,
+    this.iconKey = 'sprout',
     required this.color,
     required this.trackingType,
     this.counterGoal,
@@ -79,6 +82,7 @@ class Habit {
       'name': name,
       'description': description,
       'emoji': emoji,
+      'icon_key': iconKey,
       'color_value': color.toARGB32(),
       'tracking_type': trackingType.name,
       'counter_goal': counterGoal,
@@ -99,6 +103,9 @@ class Habit {
       name: map['name'] as String,
       description: map['description'] as String,
       emoji: map['emoji'] as String,
+      iconKey:
+          map['icon_key'] as String? ??
+          HabitIconCatalog.keyFromLegacyEmoji(map['emoji'] as String?),
       color: Color(map['color_value'] as int),
       trackingType: TrackingType.values.byName(map['tracking_type'] as String),
       counterGoal: map['counter_goal'] as int?,

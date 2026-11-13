@@ -6,6 +6,7 @@ import '../../../habits/domain/models/habit_progress.dart';
 import '../../../../core/utils/calendar_dates.dart';
 import '../../../habits/presentation/screens/habit_details_screen.dart';
 import '../widgets/today_progress_card.dart';
+import '../../../habits/domain/models/habit_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Habit> habits;
@@ -381,9 +382,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: habit.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Text(
-                            habit.emoji,
-                            style: const TextStyle(fontSize: 24),
+                          child: Icon(
+                            HabitIconCatalog.getByKey(habit.iconKey).icon,
+                            color: habit.color,
+                            size: 24,
                           ),
                         ),
                         const SizedBox(width: 14),

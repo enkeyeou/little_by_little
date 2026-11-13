@@ -23,7 +23,7 @@ class AppDatabase {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -36,6 +36,7 @@ class AppDatabase {
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         emoji TEXT NOT NULL,
+        icon_key TEXT NOT NULL DEFAULT 'sprout',
         color_value INTEGER NOT NULL,
         tracking_type TEXT NOT NULL,
         counter_goal INTEGER,
@@ -77,6 +78,26 @@ class AppDatabase {
       ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0
     ''');
       }
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+    ALTER TABLE habits
+    ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'sprout'
+  ''');
+
+      await db.execute('''
+    UPDATE habits
+    SET icon_key = CASE emoji
+      WHEN '📚' THEN 'book'
+      WHEN '💧' THEN 'water'
+      WHEN '🏃' THEN 'running'
+      WHEN '🧘' THEN 'meditation'
+      WHEN '💪' THEN 'fitness'
+      WHEN '🎨' THEN 'art'
+      WHEN '💤' THEN 'sleep'
+      ELSE 'sprout'
+    END
+  ''');
     }
   }
 

@@ -9,6 +9,7 @@ import '../../domain/models/habit_progress.dart';
 import '../widgets/habit_calendar.dart';
 import '../widgets/habit_day_status.dart';
 import '../widgets/habit_week_progress.dart';
+import '../../domain/models/habit_icon.dart';
 
 class HabitDetailsScreen extends StatefulWidget {
   final Habit habit;
@@ -678,9 +679,10 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
                   color: widget.habit.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Text(
-                  widget.habit.emoji,
-                  style: const TextStyle(fontSize: 42),
+                child: Icon(
+                  HabitIconCatalog.getByKey(widget.habit.iconKey).icon,
+                  color: widget.habit.color,
+                  size: 42,
                 ),
               ),
             ),

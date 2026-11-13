@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/models/habit.dart';
 import '../widgets/habit_schedule_fields.dart';
+import '../../domain/models/habit_icon.dart';
 
 class AddHabitScreen extends StatefulWidget {
   final Habit? habit;
@@ -18,7 +19,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
 
-  late String _selectedEmoji;
+  late String _selectedIconKey;
   late Color _selectedColor;
   late String _trackingType;
   late String _counterGoal;
@@ -48,7 +49,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       text: habit?.description ?? '',
     );
 
-    _selectedEmoji = habit?.emoji ?? '🌱';
+    _selectedIconKey = habit?.iconKey ?? 'sprout';
     _selectedColor = habit?.color ?? AppColors.primary;
 
     _trackingType = habit?.trackingType == TrackingType.counter
@@ -170,27 +171,44 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             const SizedBox(height: 12),
 
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: ['🌱', '📚', '💧', '🏃', '🧘', '💪', '🎨', '💤'].map((
-                emoji,
-              ) {
-                final isSelected = _selectedEmoji == emoji;
+              spacing: 12,
+              runSpacing: 12,
+              children: HabitIconCatalog.icons.map((habitIcon) {
+                final isSelected = _selectedIconKey == habitIcon.key;
 
-                return ChoiceChip(
-                  label: Text(emoji, style: const TextStyle(fontSize: 20)),
-                  selected: isSelected,
-                  showCheckmark: false,
-                  selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                  backgroundColor: AppColors.surface,
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primary : AppColors.border,
+                return Tooltip(
+                  message: habitIcon.label,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedIconKey = habitIcon.key;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.16)
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.border,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Icon(
+                        habitIcon.icon,
+                        size: 26,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
                   ),
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedEmoji = emoji;
-                    });
-                  },
                 );
               }).toList(),
             ),
@@ -454,7 +472,8 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                         DateTime.now().microsecondsSinceEpoch.toString(),
                     name: _nameController.text.trim(),
                     description: _descriptionController.text.trim(),
-                    emoji: _selectedEmoji,
+                    emoji: existingHabit?.emoji ?? '🌱',
+                    iconKey: _selectedIconKey,
                     color: _selectedColor,
                     trackingType: _trackingType == 'Counter'
                         ? TrackingType.counter
