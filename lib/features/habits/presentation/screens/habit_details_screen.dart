@@ -6,10 +6,9 @@ import '../../domain/models/habit.dart';
 import 'add_habit_screen.dart';
 import '../../data/datasources/habit_progress_local_data_source.dart';
 import '../../domain/models/habit_progress.dart';
-import '../widgets/habit_calendar.dart';
 import '../widgets/habit_day_status.dart';
-import '../widgets/habit_week_progress.dart';
 import '../../domain/models/habit_icon.dart';
+import '../widgets/habit_details_progress_calendar.dart';
 
 class HabitDetailsScreen extends StatefulWidget {
   final Habit habit;
@@ -31,15 +30,10 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
 
   List<HabitProgress> _progressHistory = [];
   bool _isLoadingProgress = true;
-  late DateTime _visibleMonth;
-  late DateTime _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    final today = _dateOnly(DateTime.now());
-    _visibleMonth = DateTime(today.year, today.month);
-    _selectedDate = today;
     _loadProgressHistory();
   }
 
@@ -93,16 +87,6 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
   DateTime get _today => _dateOnly(DateTime.now());
 
   DateTime get _createdDate => _dateOnly(widget.habit.createdAt);
-
-  HabitProgress? _getProgressForDate(DateTime date) {
-    final normalizedDate = _dateOnly(date);
-
-    for (final progress in _progressHistory) {
-      if (_dateOnly(progress.date) == normalizedDate) return progress;
-    }
-
-    return null;
-  }
 
   bool _isProgressSuccessful(HabitProgress? progress) {
     if (progress == null) return false;
@@ -400,24 +384,6 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
         : 'Counter-based';
   }
 
-  String _dateLabel(DateTime date) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-
   HabitDayStatus _getCalendarStatus(DateTime date, HabitProgress? progress) {
     final normalizedDate = _dateOnly(date);
     final isScheduled = widget.habit.isScheduledFor(normalizedDate);
@@ -457,145 +423,6 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     }
     if (normalizedDate == _today) return HabitDayStatus.today;
     return HabitDayStatus.missed;
-  }
-
-  void _changeVisibleMonth(int offset) {
-    setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month + offset,
-      );
-      _selectedDate = DateTime(_visibleMonth.year, _visibleMonth.month);
-    });
-  }
-
-  Widget _buildWeeklyProgressCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'This Week',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            CalendarDates.weekRangeLabel(_getWeekStart(_today)),
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 8),
-          HabitWeekProgress(
-            weekStart: _getWeekStart(_today),
-            today: _today,
-            statusForDate: _statusForDate,
-            countForDate: (date) => _getProgressForDate(date)?.count,
-            counterUnit: widget.habit.counterUnit,
-            isCounter: widget.habit.trackingType == TrackingType.counter,
-          ),
-        ],
-      ),
-    );
-  }
-
-  HabitDayStatus _statusForDate(DateTime date) =>
-      _getCalendarStatus(date, _getProgressForDate(date));
-
-  Widget _buildCompletionCalendar() {
-    return HabitCalendar(
-      visibleMonth: _visibleMonth,
-      selectedDate: _selectedDate,
-      statusForDate: _statusForDate,
-      countForDate: (date) => _getProgressForDate(date)?.count,
-      counterUnit: widget.habit.counterUnit,
-      isCounter: widget.habit.trackingType == TrackingType.counter,
-      selectedDateDetails: _buildSelectedDateDetails(),
-      onDateSelected: (date) => setState(() => _selectedDate = date),
-      onMonthChanged: _changeVisibleMonth,
-    );
-  }
-
-  Widget _buildSelectedDateDetails() {
-    final date = _selectedDate;
-    final progress = _getProgressForDate(date);
-    final status = _getCalendarStatus(date, progress);
-    final count = widget.habit.trackingType == TrackingType.counter
-        ? progress?.count
-        : null;
-    final dailyCounterGoal =
-        widget.habit.trackingType == TrackingType.counter &&
-        widget.habit.counterGoalPeriod == CounterGoalPeriod.daily &&
-        widget.habit.counterGoal != null;
-    final counterDetails = count == null
-        ? null
-        : dailyCounterGoal
-        ? '$count / ${widget.habit.counterGoal} ${widget.habit.counterUnit}'
-        : '$count ${widget.habit.counterUnit}';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _dateLabel(date),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              if (status != HabitDayStatus.today)
-                Text(
-                  status.label,
-                  style: TextStyle(
-                    color: status == HabitDayStatus.completed
-                        ? AppColors.primary
-                        : status == HabitDayStatus.missed
-                        ? AppColors.danger
-                        : AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-            ],
-          ),
-          if (counterDetails != null) ...[
-            const SizedBox(height: 5),
-            Text(
-              counterDetails,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   @override
@@ -772,9 +599,23 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
 
             if (!_isLoadingProgress) ...[
               const SizedBox(height: 12),
-              _buildWeeklyProgressCard(),
-              const SizedBox(height: 12),
-              _buildCompletionCalendar(),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: HabitDetailsProgressCalendar(
+                  habit: widget.habit,
+                  progressHistory: _progressHistory,
+                  isSuccessfulForDate: (date, progress) {
+                    return _getCalendarStatus(date, progress) ==
+                        HabitDayStatus.completed;
+                  },
+                ),
+              ),
             ],
 
             const SizedBox(height: 32),

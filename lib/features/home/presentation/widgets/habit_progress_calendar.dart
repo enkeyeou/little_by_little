@@ -217,34 +217,34 @@ class _HabitProgressCalendarState extends State<HabitProgressCalendar> {
             }).toList(),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: (totalCells ~/ 7) * 38.0 + ((totalCells ~/ 7) - 1) * 10.0,
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: totalCells,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 4,
-                mainAxisExtent: 38,
-              ),
-              itemBuilder: (context, index) {
-                final day = index - leadingDays + 1;
+          Column(
+            children: List.generate(totalCells ~/ 7, (weekIndex) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: weekIndex == (totalCells ~/ 7) - 1 ? 0 : 10,
+                ),
+                child: Row(
+                  children: List.generate(7, (dayIndex) {
+                    final index = weekIndex * 7 + dayIndex;
+                    final day = index - leadingDays + 1;
 
-                if (day < 1 || day > daysInMonth) {
-                  return const SizedBox.shrink();
-                }
+                    if (day < 1 || day > daysInMonth) {
+                      return const Expanded(child: SizedBox(height: 38));
+                    }
 
-                final date = DateTime(
-                  _visibleMonth.year,
-                  _visibleMonth.month,
-                  day,
-                );
+                    final date = DateTime(
+                      _visibleMonth.year,
+                      _visibleMonth.month,
+                      day,
+                    );
 
-                return Center(child: _buildDayIndicator(date));
-              },
-            ),
+                    return Expanded(
+                      child: Center(child: _buildDayIndicator(date)),
+                    );
+                  }),
+                ),
+              );
+            }),
           ),
         ],
       ),
