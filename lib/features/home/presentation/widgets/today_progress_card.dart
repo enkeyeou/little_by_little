@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../habits/domain/models/habit.dart';
+import '../../../habits/domain/models/habit_progress.dart';
+import 'habit_progress_calendar.dart';
 
 class TodayProgressCard extends StatelessWidget {
   final int completedHabits;
   final int scheduledHabits;
+  final List<Habit> habits;
+  final List<HabitProgress> progressHistory;
 
   const TodayProgressCard({
     super.key,
     required this.completedHabits,
     required this.scheduledHabits,
+    required this.habits,
+    required this.progressHistory,
   });
 
   @override
@@ -80,6 +87,12 @@ class TodayProgressCard extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+          const SizedBox(height: 18),
+
+          HabitProgressCalendar(
+            habits: habits,
+            progressHistory: progressHistory,
+          ),
         ],
       ),
     );

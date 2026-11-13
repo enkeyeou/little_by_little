@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
       HabitProgressLocalDataSource();
 
   final Map<String, HabitProgress> _todayProgress = {};
+  final List<HabitProgress> _activityProgress = [];
   final Map<String, int> _weeklyCounts = {};
   final Map<String, int> _weeklyTargetCounts = {};
   int _progressRequestId = 0;
@@ -81,6 +82,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _todayProgress.clear();
       _weeklyCounts.clear();
       _weeklyTargetCounts.clear();
+      _activityProgress
+        ..clear()
+        ..addAll(activityProgress);
 
       final weekStart = _getWeekStart(_today);
       final weekEnd = weekStart.add(const Duration(days: 6));
@@ -188,6 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return TodayProgressCard(
       completedHabits: _getTodaySuccessfulHabits(),
       scheduledHabits: _todaysHabits.length,
+      habits: widget.habits,
+      progressHistory: _activityProgress,
     );
   }
 
