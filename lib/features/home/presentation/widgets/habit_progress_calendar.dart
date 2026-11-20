@@ -110,34 +110,39 @@ class _HabitProgressCalendarState extends State<HabitProgressCalendar> {
         children: [
           Row(
             children: [
-              InkWell(
-                onTap: _toggleCalendar,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Text(
-                        _monthLabel(_visibleMonth),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+              Expanded(
+                child: InkWell(
+                  onTap: _toggleCalendar,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _monthLabel(_visibleMonth),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _isExpanded
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.textSecondary,
-                        size: 20,
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Icon(
+                          _isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.textSecondary,
+                          size: 20,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
               IconButton(
                 onPressed: () => _changePeriod(-1),
                 icon: const Icon(Icons.chevron_left_rounded),
@@ -152,6 +157,7 @@ class _HabitProgressCalendarState extends State<HabitProgressCalendar> {
               ),
             ],
           ),
+
           AnimatedSize(
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOutCubic,
