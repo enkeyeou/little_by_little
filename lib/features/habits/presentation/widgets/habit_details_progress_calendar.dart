@@ -10,12 +10,14 @@ class HabitDetailsProgressCalendar extends StatefulWidget {
   final List<HabitProgress> progressHistory;
   final bool Function(DateTime date, HabitProgress? progress)
   isSuccessfulForDate;
+  final ValueChanged<DateTime>? onDateSelected;
 
   const HabitDetailsProgressCalendar({
     super.key,
     required this.habit,
     required this.progressHistory,
     required this.isSuccessfulForDate,
+    this.onDateSelected,
   });
 
   @override
@@ -265,99 +267,105 @@ class _HabitDetailsProgressCalendarState
         ? (count / habit.counterGoal!).clamp(0.0, 1.0)
         : 0.0;
 
-    return SizedBox(
-      width: 38,
-      height: habit.trackingType == TrackingType.counter ? 56 : 38,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (showProgressRing)
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(
-                      value: ringProgress,
-                      strokeWidth: 3,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: AppColors.surfaceElevated,
-                      color: AppColors.primary,
-                    ),
-                  )
-                else if (habit.trackingType == TrackingType.completion)
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(
-                      value: isSuccessful ? 1.0 : 0.0,
-                      strokeWidth: 3,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: AppColors.border,
-                      color: AppColors.primary,
-                    ),
-                  )
-                else if (showCounterOutline)
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary, width: 3),
-                    ),
-                  ),
-                if (isToday)
-                  Container(
-                    width: 28,
-                    height: 28,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${date.day}',
-                      style: const TextStyle(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        widget.onDateSelected?.call(date);
+      },
+      child: SizedBox(
+        width: 38,
+        height: habit.trackingType == TrackingType.counter ? 56 : 38,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (showProgressRing)
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        value: ringProgress,
+                        strokeWidth: 3,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: AppColors.surfaceElevated,
                         color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                      ),
+                    )
+                  else if (habit.trackingType == TrackingType.completion)
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        value: isSuccessful ? 1.0 : 0.0,
+                        strokeWidth: 3,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: AppColors.border,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  else if (showCounterOutline)
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.primary, width: 3),
                       ),
                     ),
-                  )
-                else
-                  Center(
-                    child: Text(
-                      '${date.day}',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                  if (isToday)
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${date.day}',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Text(
+                        '${date.day}',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (habit.trackingType == TrackingType.counter)
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: SizedBox(
-                height: 14,
-                child: Text(
-                  count > 0 ? '$count' : '',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+            if (habit.trackingType == TrackingType.counter)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: SizedBox(
+                  height: 14,
+                  child: Text(
+                    count > 0 ? '$count' : '',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

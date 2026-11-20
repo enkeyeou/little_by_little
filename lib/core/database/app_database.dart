@@ -2,13 +2,21 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
-  AppDatabase._();
+  AppDatabase._() : _testDatabase = null;
+
+  AppDatabase.forTesting(Database database) : _testDatabase = database;
 
   static final AppDatabase instance = AppDatabase._();
 
   static Database? _database;
 
+  final Database? _testDatabase;
+
   Future<Database> get database async {
+    if (_testDatabase != null) {
+      return _testDatabase;
+    }
+
     if (_database != null) {
       return _database!;
     }

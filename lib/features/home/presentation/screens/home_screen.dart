@@ -363,6 +363,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (updatedHabit != null) {
                       await widget.onHabitUpdated?.call(updatedHabit);
                     }
+
+                    if (!mounted) return;
+                    await _refreshProgressData();
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),

@@ -50,6 +50,349 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     });
   }
 
+  Future<void> _showDateProgress(DateTime date) async {
+    final progress = await _progressDataSource.getProgress(
+      widget.habit.id,
+      date,
+    );
+
+    if (!mounted) return;
+
+    final formattedDate = MaterialLocalizations.of(
+      context,
+    ).formatFullDate(date);
+
+    final normalizedDate = _dateOnly(date);
+
+    final isBeforeCreation = normalizedDate.isBefore(_createdDate);
+    final isFutureDate = normalizedDate.isAfter(_today);
+
+    final String progressDescription;
+
+    if (isBeforeCreation) {
+      progressDescription = 'Habit not created yet.';
+    } else if (isFutureDate) {
+      progressDescription = 'Upcoming';
+    } else if (progress == null) {
+      progressDescription = 'No progress recorded for this date.';
+    } else if (widget.habit.trackingType == TrackingType.completion) {
+      progressDescription = progress.isCompleted
+          ? 'Completed'
+          : 'Not completed';
+    } else {
+      progressDescription = '${progress.count} ${widget.habit.counterUnit}';
+    }
+
+    final shouldEdit = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formattedDate,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                progressDescription,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (!isBeforeCreation && !isFutureDate)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext, true);
+                    },
+                    child: const Text('Edit Progress'),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (shouldEdit == true && mounted && !isBeforeCreation && !isFutureDate) {
+      if (widget.habit.trackingType == TrackingType.completion) {
+        await _showCompletionProgressEditor(date, progress);
+      } else {
+        await _showCounterProgressEditor(date, progress);
+      }
+    }
+  }
+
+  int _getWeeklyCounterTotal(DateTime selectedDate, int updatedCount) {
+    final habit = widget.habit;
+    final selectedDay = _dateOnly(selectedDate);
+
+    final weekStart = CalendarDates.startOfWeek(selectedDay);
+    final weekEnd = weekStart.add(const Duration(days: 6));
+
+    int total = 0;
+
+    for (final item in _progressHistory) {
+      if (item.habitId != habit.id) continue;
+
+      final itemDate = _dateOnly(item.date);
+
+      // We'll replace the selected date's old value with the edited value.
+      if (itemDate == selectedDay) continue;
+
+      // Only include records within the selected week.
+      if (itemDate.isBefore(weekStart) ||
+          itemDate.isAfter(weekEnd) ||
+          itemDate.isAfter(_today)) {
+        continue;
+      }
+
+      // Follow the existing habit scheduling rules.
+      if (itemDate.isBefore(_createdDate) || !habit.isScheduledFor(itemDate)) {
+        continue;
+      }
+
+      total += item.count;
+    }
+
+    // Include the newly edited value if the selected date is eligible.
+    final isEligibleDate =
+        !selectedDay.isBefore(_createdDate) &&
+        !selectedDay.isAfter(_today) &&
+        habit.isScheduledFor(selectedDay);
+
+    if (isEligibleDate) {
+      total += updatedCount;
+    }
+
+    return total;
+  }
+
+  Future<void> _showCounterProgressEditor(
+    DateTime date,
+    HabitProgress? progress,
+  ) async {
+    int count = progress?.count ?? 0;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                24 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Progress',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    MaterialLocalizations.of(context).formatFullDate(date),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Text(
+                      '$count ${widget.habit.counterUnit}',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: count > 0
+                            ? () {
+                                setSheetState(() {
+                                  count = (count - 1).clamp(0, 999999);
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.remove),
+                      ),
+                      const SizedBox(width: 32),
+                      IconButton.filled(
+                        onPressed: count < 999999
+                            ? () {
+                                setSheetState(() {
+                                  count = (count + 1).clamp(0, 999999);
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.add),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final habit = widget.habit;
+
+                        final isCompleted = habit.counterGoal == null
+                            ? false
+                            : habit.counterGoalPeriod == CounterGoalPeriod.daily
+                            ? count >= habit.counterGoal!
+                            : _getWeeklyCounterTotal(date, count) >=
+                                  habit.counterGoal!;
+
+                        final updatedProgress = HabitProgress(
+                          habitId: habit.id,
+                          date: _dateOnly(date),
+                          isCompleted: isCompleted,
+                          count: count,
+                        );
+
+                        await _progressDataSource.saveProgress(updatedProgress);
+
+                        if (!mounted || !sheetContext.mounted) return;
+
+                        Navigator.pop(sheetContext);
+                        await _loadProgressHistory();
+                      },
+                      child: const Text('Save Changes'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showCompletionProgressEditor(
+    DateTime date,
+    HabitProgress? progress,
+  ) async {
+    bool isCompleted = progress?.isCompleted ?? false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Progress',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    MaterialLocalizations.of(context).formatFullDate(date),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Completed',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                    subtitle: Text(
+                      isCompleted
+                          ? 'This habit was completed.'
+                          : 'This habit was not completed.',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    value: isCompleted,
+                    activeTrackColor: AppColors.primary,
+                    onChanged: (value) {
+                      setSheetState(() {
+                        isCompleted = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final updatedProgress = HabitProgress(
+                          habitId: widget.habit.id,
+                          date: date,
+                          isCompleted: isCompleted,
+                          count: progress?.count ?? 0,
+                        );
+
+                        await _progressDataSource.saveProgress(updatedProgress);
+
+                        if (!mounted || !sheetContext.mounted) return;
+
+                        Navigator.pop(sheetContext);
+                        await _loadProgressHistory();
+                      },
+                      child: const Text('Save Changes'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   int _getTotalCompletions() {
     if (widget.habit.trackingType == TrackingType.completion) {
       return _progressHistory.where((progress) => progress.isCompleted).length;
@@ -413,7 +756,24 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     }
 
     if (isWeeklyCounter) {
-      return progress?.isCompleted == true
+      final weekStart = CalendarDates.startOfWeek(normalizedDate);
+      final weekEnd = weekStart.add(const Duration(days: 6));
+
+      final weeklyTotal = _progressHistory
+          .where((item) {
+            final itemDate = _dateOnly(item.date);
+
+            return !itemDate.isBefore(weekStart) &&
+                !itemDate.isAfter(weekEnd) &&
+                !itemDate.isAfter(_today) &&
+                !itemDate.isBefore(_createdDate) &&
+                widget.habit.isScheduledFor(itemDate);
+          })
+          .fold<int>(0, (total, item) => total + item.count);
+
+      final goal = widget.habit.counterGoal;
+
+      return goal != null && weeklyTotal >= goal
           ? HabitDayStatus.completed
           : HabitDayStatus.notScheduled;
     }
@@ -614,6 +974,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
                     return _getCalendarStatus(date, progress) ==
                         HabitDayStatus.completed;
                   },
+                  onDateSelected: _showDateProgress,
                 ),
               ),
             ],
