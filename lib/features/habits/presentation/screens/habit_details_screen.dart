@@ -614,6 +614,9 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
                     return _getCalendarStatus(date, progress) ==
                         HabitDayStatus.completed;
                   },
+                  onDateSelected: (date) {
+                    debugPrint('Selected history date: $date');
+                  },
                 ),
               ),
             ],
