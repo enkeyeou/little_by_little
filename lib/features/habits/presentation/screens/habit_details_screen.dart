@@ -50,6 +50,71 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     });
   }
 
+  Future<void> _showDateProgress(DateTime date) async {
+    final progress = await _progressDataSource.getProgress(
+      widget.habit.id,
+      date,
+    );
+
+    if (!mounted) return;
+
+    final formattedDate = MaterialLocalizations.of(
+      context,
+    ).formatFullDate(date);
+
+    final progressDescription =
+        widget.habit.trackingType == TrackingType.completion
+        ? (progress?.isCompleted == true ? 'Completed' : 'Not completed')
+        : '${progress?.count ?? 0} ${widget.habit.counterUnit}';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formattedDate,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                progress == null
+                    ? 'No progress recorded for this date.'
+                    : progressDescription,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Edit Progress'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   int _getTotalCompletions() {
     if (widget.habit.trackingType == TrackingType.completion) {
       return _progressHistory.where((progress) => progress.isCompleted).length;
@@ -614,9 +679,7 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
                     return _getCalendarStatus(date, progress) ==
                         HabitDayStatus.completed;
                   },
-                  onDateSelected: (date) {
-                    debugPrint('Selected history date: $date');
-                  },
+                  onDateSelected: _showDateProgress,
                 ),
               ),
             ],
