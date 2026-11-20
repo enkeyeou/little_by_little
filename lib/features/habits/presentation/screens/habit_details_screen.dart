@@ -62,18 +62,34 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
       context,
     ).formatFullDate(date);
 
-    final progressDescription =
-        widget.habit.trackingType == TrackingType.completion
-        ? (progress?.isCompleted == true ? 'Completed' : 'Not completed')
-        : '${progress?.count ?? 0} ${widget.habit.counterUnit}';
+    final normalizedDate = _dateOnly(date);
 
-    showModalBottomSheet(
+    final isBeforeCreation = normalizedDate.isBefore(_createdDate);
+    final isFutureDate = normalizedDate.isAfter(_today);
+
+    final String progressDescription;
+
+    if (isBeforeCreation) {
+      progressDescription = 'Habit not created yet.';
+    } else if (isFutureDate) {
+      progressDescription = 'Upcoming';
+    } else if (progress == null) {
+      progressDescription = 'No progress recorded for this date.';
+    } else if (widget.habit.trackingType == TrackingType.completion) {
+      progressDescription = progress.isCompleted
+          ? 'Completed'
+          : 'Not completed';
+    } else {
+      progressDescription = '${progress.count} ${widget.habit.counterUnit}';
+    }
+
+    final shouldEdit = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -90,26 +106,134 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                progress == null
-                    ? 'No progress recorded for this date.'
-                    : progressDescription,
+                progressDescription,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 15,
                 ),
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Edit Progress'),
+              if (!isBeforeCreation &&
+                  !isFutureDate &&
+                  widget.habit.trackingType == TrackingType.completion)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext, true);
+                    },
+                    child: const Text('Edit Progress'),
+                  ),
+                )
+              else if (!isBeforeCreation &&
+                  !isFutureDate &&
+                  widget.habit.trackingType == TrackingType.counter)
+                const Text(
+                  'Counter editing will be available in the next milestone.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
             ],
           ),
+        );
+      },
+    );
+
+    if (shouldEdit == true &&
+        mounted &&
+        !isBeforeCreation &&
+        !isFutureDate &&
+        widget.habit.trackingType == TrackingType.completion) {
+      await _showCompletionProgressEditor(date, progress);
+    }
+  }
+
+  Future<void> _showCompletionProgressEditor(
+    DateTime date,
+    HabitProgress? progress,
+  ) async {
+    bool isCompleted = progress?.isCompleted ?? false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Progress',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    MaterialLocalizations.of(context).formatFullDate(date),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Completed',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                    subtitle: Text(
+                      isCompleted
+                          ? 'This habit was completed.'
+                          : 'This habit was not completed.',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    value: isCompleted,
+                    activeTrackColor: AppColors.primary,
+                    onChanged: (value) {
+                      setSheetState(() {
+                        isCompleted = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final updatedProgress = HabitProgress(
+                          habitId: widget.habit.id,
+                          date: date,
+                          isCompleted: isCompleted,
+                          count: progress?.count ?? 0,
+                        );
+
+                        await _progressDataSource.saveProgress(updatedProgress);
+
+                        if (!mounted || !sheetContext.mounted) return;
+
+                        Navigator.pop(sheetContext);
+                        await _loadProgressHistory();
+                      },
+                      child: const Text('Save Changes'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
