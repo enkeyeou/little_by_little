@@ -756,7 +756,24 @@ class _HabitDetailsScreenState extends State<HabitDetailsScreen> {
     }
 
     if (isWeeklyCounter) {
-      return progress?.isCompleted == true
+      final weekStart = CalendarDates.startOfWeek(normalizedDate);
+      final weekEnd = weekStart.add(const Duration(days: 6));
+
+      final weeklyTotal = _progressHistory
+          .where((item) {
+            final itemDate = _dateOnly(item.date);
+
+            return !itemDate.isBefore(weekStart) &&
+                !itemDate.isAfter(weekEnd) &&
+                !itemDate.isAfter(_today) &&
+                !itemDate.isBefore(_createdDate) &&
+                widget.habit.isScheduledFor(itemDate);
+          })
+          .fold<int>(0, (total, item) => total + item.count);
+
+      final goal = widget.habit.counterGoal;
+
+      return goal != null && weeklyTotal >= goal
           ? HabitDayStatus.completed
           : HabitDayStatus.notScheduled;
     }
